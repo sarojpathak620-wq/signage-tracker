@@ -522,18 +522,29 @@ export const DataService = {
     latitude: number;
     longitude: number;
     photo_file: File | Blob;
-    uploaded_by: string;
+    uploaded_by?: string;
+    signage_lat?: number;
+    signage_lng?: number;
   }): Promise<SignageUpdate> {
     const currentMonth = getCurrentMonthKey();
-    const signage = await this.getSignageById(params.signage_id);
-    if (!signage) throw new Error('Signage not found');
+    
+    let signage: Signage | null = null;
+    try {
+      signage = await this.getSignageById(params.signage_id);
+    } catch (e) {
+      console.warn('Could not fetch signage for update:', e);
+    }
+
+    // Resolve signage coordinates
+    const targetLat = params.signage_lat ?? signage?.latitude ?? params.latitude;
+    const targetLng = params.signage_lng ?? signage?.longitude ?? params.longitude;
 
     // Calculate distance between user coordinates and registered signage coordinates
     const distanceMeters = calculateDistanceMeters(
       params.latitude,
       params.longitude,
-      signage.latitude,
-      signage.longitude
+      targetLat,
+      targetLng
     );
     // Location mismatch flag if > 200 meters
     const isLocationMismatch = distanceMeters > 200;
@@ -545,8 +556,26 @@ export const DataService = {
       currentMonth
     );
 
+    // Resolve uploader ID
+    let uploaderId = params.uploaded_by;
+    if (!uploaderId || uploaderId === 'c0000000-0000-0000-0000-000000000001') {
+      try {
+        if (isSupabaseConfigured()) {
+          const supabase = createClient();
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id) {
+            uploaderId = authData.user.id;
+          }
+        }
+      } catch (authErr) {
+        console.warn('Could not retrieve current user for update:', authErr);
+      }
+    }
+    const finalUploaderId = uploaderId || 'c0000000-0000-0000-0000-000000000001';
+
     if (isSupabaseConfigured()) {
       const supabase = createClient();
+
       const { data, error } = await supabase
         .from('signage_updates')
         .upsert(
@@ -560,7 +589,7 @@ export const DataService = {
             longitude: params.longitude,
             distance_from_site_m: distanceMeters,
             location_mismatch: isLocationMismatch,
-            uploaded_by: params.uploaded_by,
+            uploaded_by: finalUploaderId,
             uploaded_at: new Date().toISOString(),
           },
           { onConflict: 'signage_id,month' }
@@ -568,7 +597,16 @@ export const DataService = {
         .select('*, uploader:profiles(*)')
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Supabase uploadSignageUpdate error:', error);
+        const errParts = [
+          error.message,
+          error.details,
+          error.hint ? `Hint: ${error.hint}` : null,
+          error.code ? `Code: ${error.code}` : null,
+        ].filter(Boolean);
+        throw new Error(`Failed to save inspection update: ${errParts.join(' | ') || error.message}`);
+      }
 
       // If condition is Damaged or Missing, trigger high-priority alert to supervisors
       if (params.condition === 'Damaged' || params.condition === 'Missing') {
@@ -579,9 +617,9 @@ export const DataService = {
               to_user: sup.id,
               type: 'condition_alert',
               title: `URGENT: Signage ${params.condition}`,
-              message: `Signage at ${signage.area?.name || 'Area'}, ${signage.address} (${signage.unit?.name || 'Unit'}) reported as ${params.condition}. Requires immediate repair.`,
-              unit_id: signage.unit_id,
-              area_id: signage.area_id,
+              message: `Signage at ${signage?.area?.name || 'Area'}, ${signage?.address || 'Site'} (${signage?.unit?.name || 'Unit'}) reported as ${params.condition}. Requires immediate repair.`,
+              unit_id: signage?.unit_id || null,
+              area_id: signage?.area_id || null,
             });
           }
         }
@@ -593,7 +631,7 @@ export const DataService = {
     // Demo LocalStorage Mode
     const updates = getStored<SignageUpdate[]>(STORAGE_KEYS.UPDATES, INITIAL_UPDATES);
     const profiles = getStored<Profile[]>(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
-    const uploader = profiles.find(p => p.id === params.uploaded_by);
+    const uploader = profiles.find(p => p.id === finalUploaderId);
 
     const newUpdate: SignageUpdate = {
       id: crypto.randomUUID(),
@@ -607,7 +645,7 @@ export const DataService = {
       longitude: params.longitude,
       distance_from_site_m: distanceMeters,
       location_mismatch: isLocationMismatch,
-      uploaded_by: params.uploaded_by,
+      uploaded_by: finalUploaderId,
       uploaded_at: new Date().toISOString(),
       uploader: uploader,
     };
@@ -631,13 +669,13 @@ export const DataService = {
           to_user: sup.id,
           type: 'condition_alert',
           title: `URGENT: Signage ${params.condition}`,
-          message: `Signage at ${signage.area?.name || 'Area'}, ${signage.address} (${signage.unit?.name || 'Unit'}) reported as ${params.condition}. Requires immediate action.`,
-          unit_id: signage.unit_id,
-          area_id: signage.area_id,
+          message: `Signage at ${signage?.area?.name || 'Area'}, ${signage?.address || 'Site'} (${signage?.unit?.name || 'Unit'}) reported as ${params.condition}. Requires immediate action.`,
+          unit_id: signage?.unit_id || null,
+          area_id: signage?.area_id || null,
           is_read: false,
           sent_at: new Date().toISOString(),
-          unit: signage.unit,
-          area: signage.area,
+          unit: signage?.unit,
+          area: signage?.area,
         });
       });
       setStored(STORAGE_KEYS.NOTIFICATIONS, notifs);

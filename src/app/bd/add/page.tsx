@@ -5,11 +5,14 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { 
   ArrowLeft, MapPin, Building2, Navigation, CheckCircle2, 
-  Layers, ShieldCheck, AlertCircle, RefreshCw, Compass 
+  Layers, ShieldCheck, AlertCircle, RefreshCw, Compass,
+  Camera, RotateCcw, AlertTriangle, AlertOctagon, HelpCircle,
+  FileText, Sparkles
 } from 'lucide-react';
-import { Unit, Area, SignageType } from '@/lib/types';
+import { Unit, Area, SignageType, SignageCondition } from '@/lib/types';
 import { DataService } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
+import { CameraCaptureModal } from '@/components/signage/CameraCaptureModal';
 
 const SIGNAGE_TYPES: { type: SignageType; desc: string }[] = [
   { type: 'Hoarding', desc: 'Large roadside billboard/structure' },
@@ -18,6 +21,48 @@ const SIGNAGE_TYPES: { type: SignageType; desc: string }[] = [
   { type: 'Wall Paint', desc: 'Direct painted wall promotional display' },
   { type: 'Poster', desc: 'High-density street kiosk/transit poster' },
   { type: 'Other', desc: 'Arch gate, kiosk, pillar wrap, etc.' },
+];
+
+const CONDITIONS: { label: SignageCondition; icon: any; color: string; border: string; bg: string; desc: string }[] = [
+  {
+    label: 'Good',
+    icon: CheckCircle2,
+    color: 'text-emerald-700',
+    border: 'border-emerald-300',
+    bg: 'bg-emerald-50 text-emerald-900',
+    desc: 'Clean, well-lit, fully intact',
+  },
+  {
+    label: 'Needs Repair',
+    icon: AlertTriangle,
+    color: 'text-amber-700',
+    border: 'border-amber-300',
+    bg: 'bg-amber-50 text-amber-900',
+    desc: 'Minor wear, light issue, loose frame',
+  },
+  {
+    label: 'Damaged',
+    icon: AlertOctagon,
+    color: 'text-orange-700',
+    border: 'border-orange-300',
+    bg: 'bg-orange-50 text-orange-900',
+    desc: 'Torn flex, broken board, major damage',
+  },
+  {
+    label: 'Missing',
+    icon: HelpCircle,
+    color: 'text-rose-700',
+    border: 'border-rose-300',
+    bg: 'bg-rose-50 text-rose-900',
+    desc: 'Removed, vandalized, not at site',
+  },
+];
+
+const QUICK_REMARKS = [
+  'Newly installed & high visibility',
+  'Clean board & intact lighting',
+  'Mounted on clinic entrance',
+  'Facing main road traffic',
 ];
 
 export default function RegisterSignagePage() {
@@ -37,13 +82,26 @@ export default function RegisterSignagePage() {
   const [latitude, setLatitude] = useState<number | ''>('');
   const [longitude, setLongitude] = useState<number | ''>('');
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null);
+
+  // Photo & Camera state (Step 5)
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [photoFileSizeKb, setPhotoFileSizeKb] = useState<number | null>(null);
+  const [condition, setCondition] = useState<SignageCondition>('Good');
+  const [remarks, setRemarks] = useState('');
+
+  // Signage specifications
   const [type, setType] = useState<SignageType>('Hoarding');
   const [size, setSize] = useState('20x10 ft');
 
-  // GPS state
+  // GPS detection state
   const [detectingGps, setDetectingGps] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
+
+  // Submission state
   const [submitting, setSubmitting] = useState(false);
+  const [submittingStep, setSubmittingStep] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Load Units and Areas and default to user's assigned unit & area
@@ -146,46 +204,66 @@ export default function RegisterSignagePage() {
     );
   };
 
-  // Auto-detect on initial load
+  // Auto-detect GPS on initial load
   useEffect(() => {
     detectCurrentLocation();
   }, []);
+
+  // Handle Photo Captured from in-app rear camera
+  const handlePhotoCaptured = (blob: Blob, previewUrl: string, fileSizeKb: number) => {
+    setPhotoBlob(blob);
+    setPhotoPreview(previewUrl);
+    setPhotoFileSizeKb(fileSizeKb);
+    setError(null);
+  };
+
+  // Validate form
+  const isGpsLocked = latitude !== '' && longitude !== '';
+  const isPhotoCaptured = photoBlob !== null;
+  const isFormValid = Boolean(
+    selectedUnitId &&
+    (selectedAreaId || (isAddingCustomArea && newAreaName.trim())) &&
+    address.trim() &&
+    isGpsLocked &&
+    isPhotoCaptured
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
     if (!selectedUnitId) {
-      const msg = 'Please select a hospital unit.';
-      setError(msg);
+      setError('Please select a hospital unit.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     if (!isAddingCustomArea && !selectedAreaId) {
-      const msg = 'Please select an area or tap "+ Add New Area".';
-      setError(msg);
+      setError('Please select an area or tap "+ Add New Area".');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     if (isAddingCustomArea && !newAreaName.trim()) {
-      const msg = 'Please enter a name for the new area.';
-      setError(msg);
+      setError('Please enter a name for the new area.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
     if (!address.trim()) {
-      const msg = 'Please enter the street address / landmark.';
-      setError(msg);
+      setError('Please enter the street address / landmark.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
-    if (latitude === '' || longitude === '') {
-      const msg = 'Please lock your GPS coordinates by tapping "Lock My GPS" before saving.';
-      setError(msg);
+    if (!isGpsLocked) {
+      setError('Please lock your GPS coordinates by tapping "Lock My GPS" before saving.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    if (!isPhotoCaptured) {
+      setError('Please capture the first photo using the in-app camera before saving.');
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
@@ -193,13 +271,15 @@ export default function RegisterSignagePage() {
     setSubmitting(true);
 
     try {
+      // Step 1: Create Signage Record
+      setSubmittingStep('Creating signage record...');
       let finalAreaId = selectedAreaId;
       if (isAddingCustomArea) {
         const createdArea = await DataService.createArea(selectedUnitId, newAreaName.trim());
         finalAreaId = createdArea.id;
       }
 
-      await DataService.createSignage({
+      const newSignage = await DataService.createSignage({
         unit_id: selectedUnitId,
         area_id: finalAreaId,
         address: address.trim(),
@@ -210,13 +290,27 @@ export default function RegisterSignagePage() {
         assigned_to: user?.id || null,
       });
 
+      // Step 2: Upload First Photo and Create First Monthly Update
+      setSubmittingStep('Uploading photo & saving inspection...');
+      await DataService.uploadSignageUpdate({
+        signage_id: newSignage.id,
+        condition,
+        remarks: remarks.trim() || undefined,
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        photo_file: photoBlob!,
+        uploaded_by: user?.id || '',
+        signage_lat: Number(latitude),
+        signage_lng: Number(longitude),
+      });
+
       router.push('/bd');
     } catch (err: any) {
       console.error('Registration failed:', err);
       let errMsg = err?.message || 'Failed to register signage. Please try again.';
       if (errMsg.toLowerCase().includes('violates row-level security policy') || errMsg.includes('42501')) {
-        errMsg = `Supabase RLS Error: Row-Level Security blocked inserting this signage. ` +
-          `Please check that the signages table RLS policy allows your role (${user?.role || 'user'}) to insert rows. ` +
+        errMsg = `Supabase RLS Error: Row-Level Security blocked saving. ` +
+          `Please check that the signages/signage_updates RLS policy allows your role (${user?.role || 'user'}) to insert rows. ` +
           `Details: ${errMsg}`;
       }
       setError(errMsg);
@@ -225,8 +319,12 @@ export default function RegisterSignagePage() {
       }
     } finally {
       setSubmitting(false);
+      setSubmittingStep(null);
     }
   };
+
+  const selectedUnit = units.find(u => u.id === selectedUnitId);
+  const selectedArea = areas.find(a => a.id === selectedAreaId);
 
   if (loadingInitial) {
     return (
@@ -262,7 +360,7 @@ export default function RegisterSignagePage() {
           Register Signage
         </h1>
         <p className="text-xs text-slate-300 mt-1">
-          Lock GPS coordinates and hospital area for monthly camera inspections.
+          Lock GPS coordinates, capture first inspection photo, and register outdoor asset.
         </p>
       </div>
 
@@ -280,7 +378,8 @@ export default function RegisterSignagePage() {
       )}
 
       {/* Registration Form */}
-      <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-5">
+      <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-6">
+        
         {/* 1. Hospital Unit */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -362,7 +461,7 @@ export default function RegisterSignagePage() {
           />
         </div>
 
-        {/* 4. GPS Coordinates (Clear Flow: Large Button, Success Banner, Try Again on Error) */}
+        {/* 4. GPS Coordinates */}
         <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
@@ -372,7 +471,7 @@ export default function RegisterSignagePage() {
           </div>
 
           {/* Large Primary Lock GPS Button when not yet locked */}
-          {latitude === '' || longitude === '' ? (
+          {!isGpsLocked ? (
             <button
               type="button"
               onClick={detectCurrentLocation}
@@ -421,7 +520,7 @@ export default function RegisterSignagePage() {
                 </div>
               </div>
               <div className="flex items-center justify-between pt-1 border-t border-amber-200">
-                <span className="text-[11px] text-amber-800 font-medium">Please check location permissions</span>
+                <span className="text-[10px] text-amber-800 font-medium">Check iPhone Location Services</span>
                 <button
                   type="button"
                   onClick={detectCurrentLocation}
@@ -435,7 +534,7 @@ export default function RegisterSignagePage() {
             </div>
           )}
 
-          {/* Coordinate Fields (Manual Check or Fine-tuning) */}
+          {/* Coordinate Fields */}
           <div className="grid grid-cols-2 gap-2.5 pt-1">
             <div>
               <label className="text-[11px] text-slate-500 font-medium block mb-1">Latitude</label>
@@ -462,10 +561,131 @@ export default function RegisterSignagePage() {
           </div>
         </div>
 
-        {/* 5. Signage Type */}
+        {/* 5. FIRST PHOTO (Required - Live Rear Camera Capture) */}
+        <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200 space-y-4">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center space-x-1.5">
+              <Camera className="w-4 h-4 text-blue-600" />
+              <span>5. First Photo *</span>
+            </span>
+            {isPhotoCaptured ? (
+              <span className="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Captured</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200">
+                Required
+              </span>
+            )}
+          </div>
+
+          {!photoPreview ? (
+            /* Open Camera Button */
+            <div className="space-y-2">
+              <button
+                type="button"
+                onClick={() => setIsCameraOpen(true)}
+                className="w-full min-h-[56px] py-4 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-bold text-sm shadow-md shadow-blue-500/25 transition-all flex items-center justify-center space-x-2.5 cursor-pointer"
+              >
+                <Camera className="w-5 h-5" />
+                <span>Open In-App Camera</span>
+              </button>
+              <p className="text-[11px] text-slate-500 text-center leading-relaxed">
+                Opens full-screen rear camera with GPS watermark. Gallery or file uploads are strictly disabled.
+              </p>
+            </div>
+          ) : (
+            /* Captured Photo Preview Card */
+            <div className="space-y-4">
+              <div className="relative rounded-2xl overflow-hidden border border-slate-200 bg-black aspect-video sm:aspect-auto sm:h-52 flex items-center justify-center">
+                <img
+                  src={photoPreview}
+                  alt="First signage inspection"
+                  className="w-full h-full object-contain"
+                />
+
+                <div className="absolute top-2 left-2 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full text-white text-[10px] font-mono flex items-center space-x-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>~{photoFileSizeKb || 180} KB • JPEG</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsCameraOpen(true)}
+                  className="absolute bottom-2 right-2 px-3 py-1.5 rounded-xl bg-white/90 hover:bg-white text-slate-900 text-xs font-bold shadow-md flex items-center space-x-1.5 cursor-pointer transition-colors"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Retake</span>
+                </button>
+              </div>
+
+              {/* Initial Condition Selector */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-2">
+                  Initial Condition *
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {CONDITIONS.map((c) => {
+                    const IconComponent = c.icon;
+                    const isSelected = condition === c.label;
+                    return (
+                      <button
+                        key={c.label}
+                        type="button"
+                        onClick={() => setCondition(c.label)}
+                        className={`min-h-[50px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center space-x-2.5 ${
+                          isSelected
+                            ? `${c.bg} ${c.border} ring-2 ring-blue-500/20 font-bold shadow-xs`
+                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                        }`}
+                      >
+                        <IconComponent className={`w-4 h-4 shrink-0 ${c.color}`} />
+                        <div className="min-w-0">
+                          <div className="text-xs">{c.label}</div>
+                          <div className="text-[10px] text-slate-500 truncate">{c.desc}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Initial Inspection Remarks */}
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
+                  Initial Remarks (Optional)
+                </label>
+                <textarea
+                  value={remarks}
+                  onChange={(e) => setRemarks(e.target.value)}
+                  rows={2}
+                  placeholder="e.g. Newly mounted, clean visibility, intact backlight"
+                  className="w-full px-3.5 py-2.5 text-base sm:text-sm rounded-2xl bg-white border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 placeholder-slate-400"
+                />
+
+                {/* Quick Remarks Chips */}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {QUICK_REMARKS.map((q) => (
+                    <button
+                      key={q}
+                      type="button"
+                      onClick={() => setRemarks(q)}
+                      className="px-2.5 py-1 rounded-full text-[11px] bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors"
+                    >
+                      + {q}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 6. Signage Type */}
         <div>
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-2">
-            5. Signage Type *
+            6. Signage Type *
           </label>
           <div className="grid grid-cols-2 gap-2">
             {SIGNAGE_TYPES.map((item) => (
@@ -486,10 +706,10 @@ export default function RegisterSignagePage() {
           </div>
         </div>
 
-        {/* 6. Dimensions / Size */}
+        {/* 7. Dimensions / Size */}
         <div>
           <label className="text-xs font-bold uppercase tracking-wider text-slate-700 block mb-1.5">
-            6. Dimensions / Size (Optional)
+            7. Dimensions / Size (Optional)
           </label>
           <input
             type="text"
@@ -511,6 +731,22 @@ export default function RegisterSignagePage() {
             </div>
           )}
 
+          {/* Validation helper status if not valid */}
+          {!isFormValid && !submitting && (
+            <div className="mb-2 px-1 text-[11px] font-bold text-amber-700 flex items-center space-x-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+              <span>
+                {!isGpsLocked
+                  ? 'Required: Lock your GPS in step 4'
+                  : !isPhotoCaptured
+                  ? 'Required: Capture the first photo in step 5'
+                  : !address.trim()
+                  ? 'Required: Enter address in step 3'
+                  : 'Please fill all required fields'}
+              </span>
+            </div>
+          )}
+
           <div className="flex items-center justify-between gap-3">
             <Link
               href="/bd"
@@ -521,24 +757,35 @@ export default function RegisterSignagePage() {
 
             <button
               type="submit"
-              disabled={submitting}
-              className="flex-1 min-h-[52px] py-3.5 px-4 rounded-2xl text-sm font-bold bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50 flex items-center justify-center space-x-2 cursor-pointer"
+              disabled={!isFormValid || submitting}
+              className="flex-1 min-h-[52px] py-3.5 px-4 rounded-2xl text-sm font-bold bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-lg shadow-blue-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 cursor-pointer"
             >
               {submitting ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Saving Signage...</span>
+                  <span>{submittingStep || 'Saving Signage & Photo...'}</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-5 h-5" />
-                  <span>Save Signage</span>
+                  <span>Complete Registration</span>
                 </>
               )}
             </button>
           </div>
         </div>
       </form>
+
+      {/* Camera Capture Modal (In-App Rear Camera, Full Screen) */}
+      <CameraCaptureModal
+        isOpen={isCameraOpen}
+        onClose={() => setIsCameraOpen(false)}
+        onCapture={handlePhotoCaptured}
+        unitName={selectedUnit?.name || 'Hospital Unit'}
+        areaName={isAddingCustomArea ? newAreaName : (selectedArea?.name || 'Area')}
+        lat={Number(latitude) || undefined}
+        lng={Number(longitude) || undefined}
+      />
     </div>
   );
 }
