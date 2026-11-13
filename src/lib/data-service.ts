@@ -182,7 +182,11 @@ export const DataService = {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
       const { data, error } = await supabase.from('areas').insert({ unit_id: unitId, name }).select('*, unit:units(*)').single();
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Supabase createArea error:', error);
+        const errInfo = [error.message, error.details, error.hint ? `Hint: ${error.hint}` : null, error.code ? `Code: ${error.code}` : null].filter(Boolean).join(' | ');
+        throw new Error(`Area creation failed: ${errInfo}`);
+      }
       return data;
     }
 
@@ -400,6 +404,20 @@ export const DataService = {
   }): Promise<Signage> {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
+
+      // Ensure assigned_to has a fallback to the current authenticated user if not passed
+      let assignedTo = data.assigned_to;
+      if (!assignedTo) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          if (authData?.user?.id) {
+            assignedTo = authData.user.id;
+          }
+        } catch (authErr) {
+          console.warn('Could not retrieve current auth user id:', authErr);
+        }
+      }
+
       const { data: newSignage, error } = await supabase
         .from('signages')
         .insert({
@@ -410,13 +428,22 @@ export const DataService = {
           longitude: data.longitude,
           type: data.type,
           size: data.size || null,
-          assigned_to: data.assigned_to || null,
+          assigned_to: assignedTo || null,
           is_active: true,
         })
         .select('*, unit:units(*), area:areas(*), assigned_profile:profiles(*)')
         .single();
 
-      if (error) throw new Error(error.message);
+      if (error) {
+        console.error('Supabase createSignage error:', error);
+        const errParts = [
+          error.message,
+          error.details,
+          error.hint ? `Hint: ${error.hint}` : null,
+          error.code ? `Code: ${error.code}` : null,
+        ].filter(Boolean);
+        throw new Error(errParts.join(' | ') || error.message);
+      }
       return newSignage;
     }
 
