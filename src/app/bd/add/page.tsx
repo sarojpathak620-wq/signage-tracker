@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  ArrowLeft, MapPin, Building2, Navigation, CheckCircle2, 
+import {
+  ArrowLeft, MapPin, Building2, Navigation, CheckCircle2,
   Layers, ShieldCheck, AlertCircle, RefreshCw, Compass,
   Camera, RotateCcw, AlertTriangle, AlertOctagon, HelpCircle,
   FileText, Sparkles
@@ -379,7 +379,7 @@ export default function RegisterSignagePage() {
 
       {/* Registration Form */}
       <form onSubmit={handleSubmit} className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 sm:p-6 space-y-6">
-        
+
         {/* 1. Hospital Unit */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
@@ -634,11 +634,10 @@ export default function RegisterSignagePage() {
                         key={c.label}
                         type="button"
                         onClick={() => setCondition(c.label)}
-                        className={`min-h-[50px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center space-x-2.5 ${
-                          isSelected
+                        className={`min-h-[50px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center space-x-2.5 ${isSelected
                             ? `${c.bg} ${c.border} ring-2 ring-blue-500/20 font-bold shadow-xs`
                             : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
-                        }`}
+                          }`}
                       >
                         <IconComponent className={`w-4 h-4 shrink-0 ${c.color}`} />
                         <div className="min-w-0">
@@ -693,11 +692,10 @@ export default function RegisterSignagePage() {
                 key={item.type}
                 type="button"
                 onClick={() => setType(item.type)}
-                className={`min-h-[52px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                  type === item.type
+                className={`min-h-[52px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${type === item.type
                     ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 text-blue-900 font-bold shadow-xs'
                     : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
-                }`}
+                  }`}
               >
                 <div className="text-xs">{item.type}</div>
                 <div className="text-[10px] text-slate-500 font-normal line-clamp-1">{item.desc}</div>
@@ -739,10 +737,10 @@ export default function RegisterSignagePage() {
                 {!isGpsLocked
                   ? 'Required: Lock your GPS in step 4'
                   : !isPhotoCaptured
-                  ? 'Required: Capture the first photo in step 5'
-                  : !address.trim()
-                  ? 'Required: Enter address in step 3'
-                  : 'Please fill all required fields'}
+                    ? 'Required: Capture the first photo in step 5'
+                    : !address.trim()
+                      ? 'Required: Enter address in step 3'
+                      : 'Please fill all required fields'}
               </span>
             </div>
           )}

@@ -10,7 +10,7 @@ import {
   INITIAL_NOTIFICATIONS
 } from './demo-data';
 import { createClient, isSupabaseConfigured } from './supabase/client';
-import { uploadSignagePhoto, getSignedPhotoUrl } from './supabase/storage';
+import { uploadSignagePhoto, getSignedPhotoUrl, deleteSignagePhoto } from './supabase/storage';
 
 const STORAGE_KEYS = {
   UNITS: 'st_units_seh_v1',
@@ -717,6 +717,102 @@ export const DataService = {
         uploader: profiles.find(p => p.id === u.uploaded_by),
       }))
       .sort((a, b) => new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime());
+  },
+
+  // DELETE MONTHLY SIGNAGE UPDATE (Photo & Record with Audit Logging)
+  async deleteSignageUpdate(
+    updateId: string,
+    options?: { reason?: string; deletedBy?: string }
+  ): Promise<void> {
+    const reason = options?.reason?.trim() || 'Deleted by user';
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+
+      // 1. Fetch update record details to log in audit and get photo path
+      const { data: updateData, error: fetchErr } = await supabase
+        .from('signage_updates')
+        .select('*')
+        .eq('id', updateId)
+        .single();
+
+      if (fetchErr || !updateData) {
+        console.warn('Update not found in database or already deleted:', fetchErr);
+        return;
+      }
+
+      // Resolve who is deleting
+      let deletedBy = options?.deletedBy;
+      if (!deletedBy) {
+        try {
+          const { data: authData } = await supabase.auth.getUser();
+          deletedBy = authData?.user?.id;
+        } catch {
+          // ignore
+        }
+      }
+
+      // 2. Insert audit log into signage_deletion_audit
+      try {
+        await supabase.from('signage_deletion_audit').insert({
+          update_id: updateId,
+          signage_id: updateData.signage_id,
+          month: updateData.month,
+          photo_path: updateData.photo_path,
+          condition: updateData.condition,
+          uploaded_by: updateData.uploaded_by,
+          uploaded_at: updateData.uploaded_at,
+          deleted_by: deletedBy || null,
+          deleted_at: new Date().toISOString(),
+          deletion_reason: reason,
+        });
+      } catch (auditErr) {
+        console.warn('Could not write to signage_deletion_audit table:', auditErr);
+      }
+
+      // 3. Remove photo file from Supabase Storage bucket
+      if (updateData.photo_path) {
+        await deleteSignagePhoto(updateData.photo_path);
+      }
+
+      // 4. Delete row from signage_updates
+      const { error: delErr } = await supabase
+        .from('signage_updates')
+        .delete()
+        .eq('id', updateId);
+
+      if (delErr) {
+        console.error('Supabase deleteSignageUpdate error:', delErr);
+        throw new Error(`Failed to delete update: ${delErr.message}`);
+      }
+
+      return;
+    }
+
+    // Demo LocalStorage Mode
+    const updates = getStored<SignageUpdate[]>(STORAGE_KEYS.UPDATES, INITIAL_UPDATES);
+    const target = updates.find(u => u.id === updateId);
+    if (target) {
+      // Store in audit storage
+      const audits = getStored<any[]>('st_deletion_audit_v1', []);
+      audits.unshift({
+        update_id: updateId,
+        signage_id: target.signage_id,
+        month: target.month,
+        photo_path: target.photo_path,
+        condition: target.condition,
+        uploaded_by: target.uploaded_by,
+        uploaded_at: target.uploaded_at,
+        deleted_by: options?.deletedBy || 'current-user',
+        deleted_at: new Date().toISOString(),
+        deletion_reason: reason,
+      });
+      setStored('st_deletion_audit_v1', audits);
+
+      // Remove from updates list
+      const filtered = updates.filter(u => u.id !== updateId);
+      setStored(STORAGE_KEYS.UPDATES, filtered);
+    }
   },
 
   // SUPERVISOR: UNIT-WISE STATUS SUMMARY (Updated / Pending / Overdue)

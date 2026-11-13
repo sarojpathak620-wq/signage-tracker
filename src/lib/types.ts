@@ -95,6 +95,20 @@ export interface AppSettings {
   reminder_days: number[];
 }
 
+export interface SignageDeletionAudit {
+  id?: string;
+  update_id?: string;
+  signage_id: string;
+  month: string;
+  photo_path?: string | null;
+  condition?: SignageCondition;
+  uploaded_by?: string;
+  uploaded_at?: string;
+  deleted_by?: string;
+  deleted_at?: string;
+  deletion_reason: string;
+}
+
 export interface SignageStatusView {
   signage_id: string;
   unit_id: string;

@@ -97,3 +97,35 @@ export async function getSignedPhotoUrl(
 
   return pathOrUrl;
 }
+
+/**
+ * Deletes a photo file from the "signage-photos" Supabase Storage bucket.
+ */
+export async function deleteSignagePhoto(pathOrUrl?: string | null): Promise<void> {
+  if (!pathOrUrl) return;
+
+  if (isSupabaseConfigured()) {
+    try {
+      const supabase = createClient();
+      let cleanPath = pathOrUrl;
+
+      // Extract relative path if full URL was provided
+      if (cleanPath.includes('/signage-photos/')) {
+        cleanPath = cleanPath.split('/signage-photos/')[1];
+      }
+      // Remove query parameters if present
+      cleanPath = cleanPath.split('?')[0];
+
+      const { error } = await supabase.storage
+        .from('signage-photos')
+        .remove([cleanPath]);
+
+      if (error) {
+        console.warn('Supabase storage photo removal warning:', error);
+      }
+    } catch (e) {
+      console.warn('Failed to remove photo from storage:', pathOrUrl, e);
+    }
+  }
+}
+

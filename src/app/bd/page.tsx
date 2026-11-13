@@ -5,10 +5,11 @@ import Link from 'next/link';
 import {
   PlusCircle, Camera, CheckCircle2, Clock, AlertTriangle,
   MapPin, Search, ShieldCheck, ChevronRight, RefreshCw, 
-  AlertOctagon, HelpCircle, Eye, X, ImageOff, Compass, ShieldAlert
+  AlertOctagon, HelpCircle, Eye, X, ImageOff, Compass, ShieldAlert,
+  Trash2, Lock
 } from 'lucide-react';
 import { Signage, SignageStatus, SignageCondition, SignageUpdate } from '@/lib/types';
-import { DataService } from '@/lib/data-service';
+import { DataService, getCurrentMonthKey } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { CameraInspectionModal } from '@/components/signage/CameraInspectionModal';
 
@@ -31,6 +32,32 @@ export default function BDExecutivePortal() {
 
   // Track failed image URLs so we show "Photo unavailable" placeholder instead of broken icon
   const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({});
+
+  // BD Delete Photo Modal state
+  const [deleteModalSignage, setDeleteModalSignage] = useState<{ signage: Signage; update: SignageUpdate } | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const currentMonthKey = getCurrentMonthKey();
+
+  const handleConfirmDeletePhoto = async () => {
+    if (!deleteModalSignage) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await DataService.deleteSignageUpdate(deleteModalSignage.update.id, {
+        reason: 'Removed by BD executive from field portal (reverting to Pending)',
+        deletedBy: user?.id,
+      });
+      setDeleteModalSignage(null);
+      await loadSignages();
+    } catch (err: any) {
+      console.error('Delete photo error:', err);
+      setDeleteError(err.message || 'Failed to delete photo. Please check permissions.');
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Load signages
   const loadSignages = async () => {
@@ -287,6 +314,13 @@ export default function BDExecutivePortal() {
             const photoSrc = update?.photo_url || update?.photo_path;
             const isImageFailed = photoSrc ? failedImageUrls[photoSrc] : false;
 
+            // Retake & delete rules:
+            // Only allow retaking & deleting THIS MONTH'S OWN update before next calendar month locks it
+            const isThisMonthUpdate = Boolean(update && update.month === currentMonthKey);
+            const isOwnUpdate = Boolean(update && (update.uploaded_by === user?.id || signage.assigned_to === user?.id));
+            const canModifyThisMonth = isUpdated && isThisMonthUpdate && isOwnUpdate;
+            const isPastMonthFinalized = Boolean(update && update.month !== currentMonthKey);
+
             return (
               <div
                 key={signage.id}
@@ -394,19 +428,52 @@ export default function BDExecutivePortal() {
 
                 {/* Primary Action Button (Big Touch Target min 48px) */}
                 <div className="mt-4 pt-3 border-t border-slate-100">
-                  <button
-                    onClick={() => setSelectedSignageForCamera(signage)}
-                    className={`w-full min-h-[48px] py-3 px-4 rounded-2xl text-sm font-bold flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer shadow-sm ${
-                      isUpdated
-                        ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200'
-                        : isOverdue
-                          ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/25 animate-pulse'
-                          : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
-                    }`}
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>{isUpdated ? 'Retake Field Photo' : 'Open Camera & Capture Photo'}</span>
-                  </button>
+                  {canModifyThisMonth ? (
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSignageForCamera(signage)}
+                        className="flex-1 min-h-[48px] py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer shadow-xs bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200"
+                      >
+                        <Camera className="w-4 h-4 text-blue-600" />
+                        <span>Retake Field Photo</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteError(null);
+                          setDeleteModalSignage({ signage, update: update! });
+                        }}
+                        className="min-h-[48px] px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200"
+                        title="Delete this month's photo"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Delete Photo</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {isPastMonthFinalized && (
+                        <div className="mb-2 text-[11px] text-slate-500 font-medium flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/60">
+                          <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          <span>Previous month inspection ({update?.month}) is finalized &amp; read-only.</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedSignageForCamera(signage)}
+                        className={`w-full min-h-[48px] py-3 px-4 rounded-2xl text-sm font-bold flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer shadow-sm ${
+                          isOverdue
+                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/25 animate-pulse'
+                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+                        }`}
+                      >
+                        <Camera className="w-4 h-4" />
+                        <span>Open Camera &amp; Capture Photo</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -470,6 +537,59 @@ export default function BDExecutivePortal() {
             {lightboxData.update.remarks && (
               <p className="italic text-slate-400">&quot;{lightboxData.update.remarks}&quot;</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal for BD Executive */}
+      {deleteModalSignage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-base font-bold text-slate-900">Remove This Month's Photo?</h3>
+              <p className="text-xs text-slate-500 mt-1 font-semibold truncate max-w-[280px] mx-auto">
+                {deleteModalSignage.signage.address}
+              </p>
+              <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+                This will remove this month's photo and mark it <strong className="text-amber-700">Pending</strong> again. Continue?
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteModalSignage(null)}
+                disabled={deleting}
+                className="min-h-[48px] py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeletePhoto}
+                disabled={deleting}
+                className="min-h-[48px] py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {deleting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Yes, Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
