@@ -10,7 +10,7 @@ import {
   ArrowLeft, BookmarkCheck, Building2, MapPin, 
   Calendar, Camera, CheckCircle2, Clock, AlertTriangle, 
   MessageSquare, User, Maximize2, X, ShieldAlert,
-  ArrowRightLeft, Layers, Compass, Trash2, History
+  ArrowRightLeft, Layers, Compass, Trash2, History, Phone
 } from 'lucide-react';
 
 function SignageHistoryDetailContent() {
@@ -246,19 +246,31 @@ function SignageHistoryDetailContent() {
           </div>
 
           {/* Assigned BD Executive Info */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 min-w-[220px] flex items-center space-x-3.5">
-            <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-              {signage.assigned_profile?.full_name?.charAt(0) || '?'}
-            </div>
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned BD Executive</div>
-              <div className="font-bold text-sm text-slate-900 leading-tight">
-                {signage.assigned_profile?.full_name || 'Unassigned'}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 min-w-[240px] flex flex-col justify-between space-y-3">
+            <div className="flex items-center space-x-3.5">
+              <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+                {signage.assigned_profile?.full_name?.charAt(0) || '?'}
               </div>
-              {signage.assigned_profile?.phone && (
-                <div className="text-xs text-slate-500 mt-0.5">{signage.assigned_profile.phone}</div>
-              )}
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned BD Executive</div>
+                <div className="font-bold text-sm text-slate-900 leading-tight truncate">
+                  {signage.assigned_profile?.full_name || 'Unassigned'}
+                </div>
+                {signage.assigned_profile?.phone && (
+                  <div className="text-xs text-slate-500 mt-0.5 font-mono">{signage.assigned_profile.phone}</div>
+                )}
+              </div>
             </div>
+
+            {signage.assigned_profile?.phone && (
+              <a
+                href={`tel:${signage.assigned_profile.phone}`}
+                className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors shadow-xs active:scale-95"
+              >
+                <Phone className="w-3.5 h-3.5" />
+                <span>Call {signage.assigned_profile.full_name?.split(' ')[0] || 'BD'}</span>
+              </a>
+            )}
           </div>
         </div>
       </div>
