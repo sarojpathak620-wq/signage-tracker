@@ -12,10 +12,18 @@ interface SignageMapProps {
   signages: Signage[];
   selectedSignageId?: string | null;
   onSelectSignage?: (signage: Signage) => void;
+  title?: string;
 }
 
-export function SignageMap({ signages, selectedSignageId, onSelectSignage }: SignageMapProps) {
+export function SignageMap({ signages, selectedSignageId, onSelectSignage, title }: SignageMapProps) {
   const [activeSignage, setActiveSignage] = useState<Signage | null>(null);
+
+  // Derive dynamic map title from props, unit, or fallback
+  const mapTitle = title || (
+    signages.length > 0 && signages[0]?.unit?.name
+      ? `${signages[0].unit.name} Outdoor Signages`
+      : 'Outdoor Signages Map'
+  );
 
   useEffect(() => {
     if (selectedSignageId) {
@@ -79,10 +87,10 @@ export function SignageMap({ signages, selectedSignageId, onSelectSignage }: Sig
         </svg>
 
         {/* City / Hospital Zone Markers */}
-        <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-slate-900/85 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-700/60 text-white text-xs">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-          <span className="font-semibold">Bangalore Metro Outdoor Signages</span>
-          <span className="text-slate-400">({signages.length} Active Pins)</span>
+        <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 bg-slate-900/85 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-slate-700/60 text-white text-xs max-w-[calc(100%-2rem)]">
+          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse shrink-0" />
+          <span className="font-semibold truncate">{mapTitle}</span>
+          <span className="text-slate-400 shrink-0">({signages.length} Active Pins)</span>
         </div>
 
         {/* Legend */}

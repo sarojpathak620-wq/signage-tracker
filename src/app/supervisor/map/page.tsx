@@ -149,7 +149,14 @@ export default function SupervisorMapPage() {
           </div>
         </div>
       ) : (
-        <SignageMap signages={filteredSignages} />
+        <SignageMap 
+          signages={filteredSignages} 
+          title={
+            selectedUnitId === 'all' 
+              ? 'All Hospital Units Signages' 
+              : `${units.find(u => u.id === selectedUnitId)?.name || 'Outdoor'} Signages`
+          }
+        />
       )}
     </div>
   );
