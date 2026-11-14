@@ -635,8 +635,8 @@ export default function RegisterSignagePage() {
                         type="button"
                         onClick={() => setCondition(c.label)}
                         className={`min-h-[50px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex items-center space-x-2.5 ${isSelected
-                            ? `${c.bg} ${c.border} ring-2 ring-blue-500/20 font-bold shadow-xs`
-                            : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                          ? `${c.bg} ${c.border} ring-2 ring-blue-500/20 font-bold shadow-xs`
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
                           }`}
                       >
                         <IconComponent className={`w-4 h-4 shrink-0 ${c.color}`} />
@@ -693,8 +693,8 @@ export default function RegisterSignagePage() {
                 type="button"
                 onClick={() => setType(item.type)}
                 className={`min-h-[52px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${type === item.type
-                    ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 text-blue-900 font-bold shadow-xs'
-                    : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
+                  ? 'border-blue-600 bg-blue-50/70 ring-2 ring-blue-500/20 text-blue-900 font-bold shadow-xs'
+                  : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-medium'
                   }`}
               >
                 <div className="text-xs">{item.type}</div>
