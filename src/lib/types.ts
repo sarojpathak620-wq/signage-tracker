@@ -67,6 +67,10 @@ export interface SignageUpdate {
   photo_url?: string;
   condition: SignageCondition;
   remarks?: string | null;
+  admin_remarks?: string | null;
+  admin_action_type?: string | null;
+  admin_reviewed_at?: string | null;
+  admin_reviewed_by?: string | null;
   latitude: number;
   longitude: number;
   distance_from_site_m?: number | null;

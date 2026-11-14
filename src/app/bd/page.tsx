@@ -6,7 +6,7 @@ import {
   PlusCircle, Camera, CheckCircle2, Clock, AlertTriangle,
   MapPin, Search, ShieldCheck, ChevronRight, RefreshCw, 
   AlertOctagon, HelpCircle, Eye, X, ImageOff, Compass, ShieldAlert,
-  Trash2, Lock
+  Trash2, Lock, Sparkles
 } from 'lucide-react';
 import { Signage, SignageStatus, SignageCondition, SignageUpdate } from '@/lib/types';
 import { DataService, getCurrentMonthKey } from '@/lib/data-service';
@@ -420,6 +420,19 @@ export default function BDExecutivePortal() {
                         <div className="text-[11px] font-bold text-rose-700 bg-rose-50 p-2 rounded-xl border border-rose-200 flex items-center space-x-1.5">
                           <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           <span>Location mismatch: {Math.round(update.distance_from_site_m || 0)}m from site (&gt;200m)</span>
+                        </div>
+                      )}
+
+                      {/* Admin Audit Feedback Alert */}
+                      {update.admin_remarks && (
+                        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/90 space-y-1 text-xs">
+                          <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-[11px]">
+                            <Sparkles className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                            <span>Admin Action: {update.admin_action_type || 'Feedback'}</span>
+                          </div>
+                          <p className="text-slate-800 italic text-[11px] leading-relaxed">
+                            &quot;{update.admin_remarks}&quot;
+                          </p>
                         </div>
                       )}
                     </div>

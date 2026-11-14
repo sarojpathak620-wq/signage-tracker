@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   MapPin, CheckCircle2, AlertTriangle, AlertOctagon, 
-  HelpCircle, ExternalLink, Camera, Phone, Navigation, 
+  HelpCircle, ExternalLink, Camera, Navigation, 
   Layers, Maximize2, ZoomIn, ZoomOut 
 } from 'lucide-react';
 import { Signage, SignageCondition, SignageStatus } from '@/lib/types';
@@ -245,16 +245,6 @@ export function SignageMap({ signages, selectedSignageId, onSelectSignage, title
                 <span>Open in Google Maps</span>
                 <ExternalLink className="w-3 h-3 ml-1 opacity-70" />
               </a>
-
-              {activeSignage.assigned_profile?.phone && (
-                <a
-                  href={`tel:${activeSignage.assigned_profile.phone}`}
-                  className="w-full py-2 px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-semibold flex items-center justify-center space-x-1.5 transition-colors border border-blue-200"
-                >
-                  <Phone className="w-3.5 h-3.5" />
-                  <span>Call {activeSignage.assigned_profile.full_name}</span>
-                </a>
-              )}
             </div>
           </div>
         ) : (

@@ -815,6 +815,72 @@ export const DataService = {
     }
   },
 
+  // ADMIN: SAVE AUDIT REMARK / FEEDBACK FOR A MONTHLY UPDATE
+  async saveAdminFeedback(params: {
+    update_id: string;
+    signage_id: string;
+    admin_remarks: string;
+    admin_action_type: string;
+    admin_id?: string;
+    assigned_to?: string | null;
+    signage_address?: string;
+  }): Promise<SignageUpdate> {
+    const reviewedAt = new Date().toISOString();
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+
+      const { data, error } = await supabase
+        .from('signage_updates')
+        .update({
+          admin_remarks: params.admin_remarks,
+          admin_action_type: params.admin_action_type,
+          admin_reviewed_at: reviewedAt,
+          admin_reviewed_by: params.admin_id || null,
+        })
+        .eq('id', params.update_id)
+        .select('*, uploader:profiles(*)')
+        .single();
+
+      if (error) {
+        console.error('Supabase saveAdminFeedback error:', error);
+        throw new Error(error.message);
+      }
+
+      // Notify the assigned BD executive about the admin remark
+      if (params.assigned_to) {
+        try {
+          await supabase.from('notifications').insert({
+            to_user: params.assigned_to,
+            type: 'condition_alert',
+            title: `Admin Action Required: ${params.admin_action_type}`,
+            message: `Admin reviewed signage at ${params.signage_address || 'site'}: "${params.admin_remarks}". Please take required action.`,
+            sent_at: reviewedAt,
+            is_read: false,
+          });
+        } catch (notifErr) {
+          console.warn('Could not dispatch notification:', notifErr);
+        }
+      }
+
+      return data;
+    }
+
+    // LocalStorage demo fallback
+    const updates = getStored<SignageUpdate[]>(STORAGE_KEYS.UPDATES, INITIAL_UPDATES);
+    const idx = updates.findIndex(u => u.id === params.update_id);
+    if (idx === -1) throw new Error('Inspection update not found');
+    updates[idx] = {
+      ...updates[idx],
+      admin_remarks: params.admin_remarks,
+      admin_action_type: params.admin_action_type,
+      admin_reviewed_at: reviewedAt,
+      admin_reviewed_by: params.admin_id || null,
+    };
+    setStored(STORAGE_KEYS.UPDATES, updates);
+    return updates[idx];
+  },
+
   // SUPERVISOR: UNIT-WISE STATUS SUMMARY (Updated / Pending / Overdue)
   async getUnitStatusSummary(): Promise<{
     unit: Unit;

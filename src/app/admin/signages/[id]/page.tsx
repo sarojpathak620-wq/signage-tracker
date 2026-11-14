@@ -10,7 +10,8 @@ import {
   ArrowLeft, BookmarkCheck, Building2, MapPin, 
   Calendar, Camera, CheckCircle2, Clock, AlertTriangle, 
   MessageSquare, User, Maximize2, X, ShieldAlert,
-  ArrowRightLeft, Layers, Compass, Trash2, History, Phone
+  ArrowRightLeft, Layers, Compass, Trash2, History,
+  Sparkles, Check, Edit3
 } from 'lucide-react';
 
 function SignageHistoryDetailContent() {
@@ -29,6 +30,13 @@ function SignageHistoryDetailContent() {
   const [deleteReason, setDeleteReason] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  // Admin Audit Feedback / Remark State
+  const [feedbackUpdate, setFeedbackUpdate] = useState<SignageUpdate | null>(null);
+  const [feedbackActionType, setFeedbackActionType] = useState<string>('Replace Creative / Flex');
+  const [feedbackRemarks, setFeedbackRemarks] = useState('');
+  const [savingFeedback, setSavingFeedback] = useState(false);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
 
   // Before / After comparison selection
   const [beforeIndex, setBeforeIndex] = useState<number>(1);
@@ -112,6 +120,46 @@ function SignageHistoryDetailContent() {
       setDeleteError(err.message || 'Failed to delete update.');
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const openFeedbackModal = (update: SignageUpdate) => {
+    setFeedbackUpdate(update);
+    setFeedbackActionType(update.admin_action_type || 'Replace Creative / Flex');
+    setFeedbackRemarks(update.admin_remarks || '');
+    setFeedbackError(null);
+  };
+
+  const handleSaveFeedback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!feedbackUpdate || !signage) return;
+    if (!feedbackRemarks.trim()) {
+      setFeedbackError('Please enter an admin remark or feedback instruction.');
+      return;
+    }
+
+    try {
+      setSavingFeedback(true);
+      setFeedbackError(null);
+      await DataService.saveAdminFeedback({
+        update_id: feedbackUpdate.id,
+        signage_id: signage.id,
+        admin_remarks: feedbackRemarks.trim(),
+        admin_action_type: feedbackActionType,
+        admin_id: user?.id,
+        assigned_to: signage.assigned_to,
+        signage_address: signage.address,
+      });
+
+      // Reload updates
+      const updatedList = await DataService.getSignageUpdates(signage.id);
+      setUpdates(updatedList);
+      setFeedbackUpdate(null);
+    } catch (err: any) {
+      console.error('Failed to save admin feedback:', err);
+      setFeedbackError(err.message || 'Failed to save admin feedback.');
+    } finally {
+      setSavingFeedback(false);
     }
   };
 
@@ -246,31 +294,19 @@ function SignageHistoryDetailContent() {
           </div>
 
           {/* Assigned BD Executive Info */}
-          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 min-w-[240px] flex flex-col justify-between space-y-3">
-            <div className="flex items-center space-x-3.5">
-              <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
-                {signage.assigned_profile?.full_name?.charAt(0) || '?'}
-              </div>
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned BD Executive</div>
-                <div className="font-bold text-sm text-slate-900 leading-tight truncate">
-                  {signage.assigned_profile?.full_name || 'Unassigned'}
-                </div>
-                {signage.assigned_profile?.phone && (
-                  <div className="text-xs text-slate-500 mt-0.5 font-mono">{signage.assigned_profile.phone}</div>
-                )}
-              </div>
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 min-w-[220px] flex items-center space-x-3.5">
+            <div className="w-10 h-10 rounded-full bg-blue-600 text-white font-bold text-sm flex items-center justify-center shrink-0 shadow-sm">
+              {signage.assigned_profile?.full_name?.charAt(0) || '?'}
             </div>
-
-            {signage.assigned_profile?.phone && (
-              <a
-                href={`tel:${signage.assigned_profile.phone}`}
-                className="w-full py-2 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition-colors shadow-xs active:scale-95"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Call {signage.assigned_profile.full_name?.split(' ')[0] || 'BD'}</span>
-              </a>
-            )}
+            <div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned BD Executive</div>
+              <div className="font-bold text-sm text-slate-900 leading-tight">
+                {signage.assigned_profile?.full_name || 'Unassigned'}
+              </div>
+              {signage.assigned_profile?.phone && (
+                <div className="text-xs text-slate-500 mt-0.5 font-mono">{signage.assigned_profile.phone}</div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -566,8 +602,60 @@ function SignageHistoryDetailContent() {
                         {update.remarks && (
                           <div className="mt-3 p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-start space-x-2 text-xs text-slate-700">
                             <MessageSquare className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
-                            <span className="italic leading-relaxed">&quot;{update.remarks}&quot;</span>
+                            <div>
+                              <span className="font-semibold text-slate-500 text-[10px] uppercase block tracking-wider">BD Field Remarks</span>
+                              <span className="italic leading-relaxed">&quot;{update.remarks}&quot;</span>
+                            </div>
                           </div>
+                        )}
+
+                        {/* Admin Audit Remark / Feedback Block */}
+                        {update.admin_remarks ? (
+                          <div className="mt-3 p-3.5 rounded-2xl bg-amber-50/90 border border-amber-200/90 space-y-1.5">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center space-x-1.5">
+                                <Sparkles className="w-4 h-4 text-amber-700 shrink-0" />
+                                <span className="text-xs font-bold text-amber-950">Admin Audit Feedback:</span>
+                                {update.admin_action_type && (
+                                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-extrabold bg-amber-200/90 text-amber-900 border border-amber-300">
+                                    {update.admin_action_type}
+                                  </span>
+                                )}
+                              </div>
+                              {user?.role === 'admin' && (
+                                <button
+                                  type="button"
+                                  onClick={() => openFeedbackModal(update)}
+                                  className="text-[11px] font-bold text-amber-900 hover:text-amber-950 underline flex items-center space-x-1 cursor-pointer"
+                                >
+                                  <Edit3 className="w-3 h-3" />
+                                  <span>Edit Remark</span>
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-800 italic leading-relaxed">
+                              &quot;{update.admin_remarks}&quot;
+                            </p>
+                            {update.admin_reviewed_at && (
+                              <div className="text-[10px] text-amber-800/80 flex items-center space-x-1 pt-0.5">
+                                <Clock className="w-3 h-3 text-amber-600" />
+                                <span>Feedback recorded on {new Date(update.admin_reviewed_at).toLocaleDateString()} at {new Date(update.admin_reviewed_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          user?.role === 'admin' && (
+                            <div className="mt-3">
+                              <button
+                                type="button"
+                                onClick={() => openFeedbackModal(update)}
+                                className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 transition-colors cursor-pointer"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5 text-amber-600" />
+                                <span>Add Admin Remark / Feedback</span>
+                              </button>
+                            </div>
+                          )
                         )}
 
                         {/* Admin Action: Delete this update */}
@@ -751,6 +839,141 @@ function SignageHistoryDetailContent() {
                 Close View
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Audit Remark / Feedback Modal */}
+      {feedbackUpdate && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-lg w-full shadow-2xl border border-slate-100 space-y-4 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center space-x-2 text-amber-800 font-bold text-base">
+                <Sparkles className="w-5 h-5 text-amber-600" />
+                <span>Admin Audit Feedback &amp; Remarks</span>
+              </div>
+              <button
+                onClick={() => setFeedbackUpdate(null)}
+                className="p-1 rounded-full text-slate-400 hover:bg-slate-100 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="text-xs text-slate-600">
+              <span className="font-semibold text-slate-900">{signage.address}</span>
+              <span className="text-slate-400"> &bull; Inspection: {feedbackUpdate.month}</span>
+            </div>
+
+            <form onSubmit={handleSaveFeedback} className="space-y-4">
+              {/* 1. Required Action / Feedback Type */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">
+                  1. Required Action / Feedback Type
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[
+                    'Replace Creative / Flex',
+                    'Frame Repaint Required',
+                    'Fix Night Backlight',
+                    'Tree / Visibility Obstruction',
+                    'Poster Peeling Off',
+                    'Reposition Signage',
+                    'Creative Approved (Good)',
+                    'Other Action Required',
+                  ].map((act) => {
+                    const isSelected = feedbackActionType === act;
+                    return (
+                      <button
+                        key={act}
+                        type="button"
+                        onClick={() => setFeedbackActionType(act)}
+                        className={`p-2.5 rounded-xl border text-left text-xs font-semibold transition-all cursor-pointer flex items-center justify-between ${
+                          isSelected
+                            ? 'bg-amber-100/80 border-amber-400 text-amber-950 ring-2 ring-amber-500/20'
+                            : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <span className="truncate">{act}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-amber-700 shrink-0 ml-1" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 2. Admin Comments / Specific Instructions */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+                    2. Admin Remark &amp; Instructions *
+                  </label>
+                  <span className="text-[11px] text-slate-400">Visible to BD team</span>
+                </div>
+
+                {/* Quick comment chips */}
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {[
+                    'Replace torn flex with new print',
+                    'Frame rusted, apply black anti-rust paint',
+                    'Backlight dark, fix LED wiring',
+                    'Poster peeled, paste fresh vinyl',
+                    'Approved: good condition',
+                  ].map((template) => (
+                    <button
+                      key={template}
+                      type="button"
+                      onClick={() => setFeedbackRemarks(template)}
+                      className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[10px] font-medium transition-colors cursor-pointer"
+                    >
+                      + {template}
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  value={feedbackRemarks}
+                  onChange={(e) => setFeedbackRemarks(e.target.value)}
+                  placeholder="e.g. Creative is badly torn from bottom left corner. Please get a new 10x12 flex printed and installed by Friday..."
+                  rows={3}
+                  className="w-full p-3 rounded-xl border border-slate-200 bg-slate-50 text-xs focus:outline-none focus:ring-2 focus:ring-amber-500 focus:bg-white text-slate-900"
+                  required
+                />
+              </div>
+
+              {feedbackError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                  {feedbackError}
+                </div>
+              )}
+
+              {/* Footer actions */}
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setFeedbackUpdate(null)}
+                  disabled={savingFeedback}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingFeedback || !feedbackRemarks.trim()}
+                  className="px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shadow-md shadow-amber-600/20 flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {savingFeedback ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Save Feedback &amp; Notify BD</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

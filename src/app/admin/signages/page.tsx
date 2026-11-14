@@ -7,7 +7,8 @@ import { DataService } from '@/lib/data-service';
 import { 
   BookmarkCheck, Building2, MapPin, UserCheck, 
   Search, Edit3, X, CheckCircle2, Clock, AlertTriangle, 
-  Camera, Eye, Calendar, MessageSquare, History, Maximize2, ShieldAlert
+  Camera, Eye, Calendar, MessageSquare, History, Maximize2, ShieldAlert,
+  Sparkles
 } from 'lucide-react';
 
 interface PhotoModalState {
@@ -404,6 +405,21 @@ export default function AdminSignagesPage() {
                         <span className="line-clamp-2 italic text-[11px]">
                           &quot;{signage.latest_update.remarks}&quot;
                         </span>
+                      </div>
+                    )}
+
+                    {/* Admin Audit Remark if any */}
+                    {signage.latest_update?.admin_remarks && (
+                      <div className="mt-2 p-2 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start space-x-1.5 text-xs text-amber-900">
+                        <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                        <div className="min-w-0">
+                          <div className="text-[10px] font-bold uppercase tracking-wider text-amber-800">
+                            Admin Action: {signage.latest_update.admin_action_type || 'Remark'}
+                          </div>
+                          <span className="line-clamp-2 italic text-[11px] text-slate-800">
+                            &quot;{signage.latest_update.admin_remarks}&quot;
+                          </span>
+                        </div>
                       </div>
                     )}
                   </div>
