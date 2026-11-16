@@ -6,6 +6,7 @@ import { AuthProvider } from '@/contexts/auth-context';
 import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PWAInstallBanner } from '@/components/layout/PWAInstallBanner';
+import { InactivityWatcher } from '@/components/auth/InactivityWatcher';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -56,6 +57,9 @@ export default function RootLayout({
               {children}
             </main>
             <PWAInstallBanner />
+            <Suspense fallback={null}>
+              <InactivityWatcher />
+            </Suspense>
           </div>
         </AuthProvider>
       </body>
