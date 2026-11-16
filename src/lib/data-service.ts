@@ -349,10 +349,21 @@ export const DataService = {
 
       if (!error && signagesData) {
         // Fetch all signage updates, sorted by uploaded_at descending
-        const { data: updatesData } = await supabase
+        let updatesData: any = null;
+        const resWithFkey = await supabase
           .from('signage_updates')
-          .select('*, uploader:profiles(*)')
+          .select('*, uploader:profiles!signage_updates_uploaded_by_fkey(*)')
           .order('uploaded_at', { ascending: false });
+
+        if (!resWithFkey.error && resWithFkey.data) {
+          updatesData = resWithFkey.data;
+        } else {
+          const fallbackRes = await supabase
+            .from('signage_updates')
+            .select('*')
+            .order('uploaded_at', { ascending: false });
+          updatesData = fallbackRes.data;
+        }
 
         const resolvedSignages = await Promise.all(
           signagesData.map(async (s: any) => {
@@ -621,7 +632,7 @@ export const DataService = {
           },
           { onConflict: 'signage_id,month' }
         )
-        .select('*, uploader:profiles(*)')
+        .select('*')
         .single();
 
       if (error) {
@@ -714,11 +725,20 @@ export const DataService = {
   async getSignageUpdates(signageId: string): Promise<SignageUpdate[]> {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('signage_updates')
-        .select('*, uploader:profiles(*)')
+        .select('*, uploader:profiles!signage_updates_uploaded_by_fkey(*)')
         .eq('signage_id', signageId)
         .order('uploaded_at', { ascending: false });
+
+      if (error && (error.code === 'PGRST201' || error.message?.includes('more than one relationship'))) {
+        const fallbackRes = await supabase
+          .from('signage_updates')
+          .select('*')
+          .eq('signage_id', signageId)
+          .order('uploaded_at', { ascending: false });
+        data = fallbackRes.data;
+      }
 
       if (!error && data) {
         const resolvedUpdates = await Promise.all(
@@ -866,7 +886,7 @@ export const DataService = {
           admin_reviewed_by: params.admin_id || null,
         })
         .eq('id', params.update_id)
-        .select('*, uploader:profiles(*)')
+        .select('*')
         .single();
 
       if (error) {
