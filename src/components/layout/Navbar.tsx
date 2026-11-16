@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/auth-context';
 import { 
   Building2, LogOut, 
@@ -12,9 +13,15 @@ import { DataService } from '@/lib/data-service';
 
 export function Navbar() {
   const { user, role, logout, isSupabaseLive } = useAuth();
+  const pathname = usePathname();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+
+  // Hide navbar on dedicated authentication pages
+  if (pathname === '/login' || pathname === '/reset-password') {
+    return null;
+  }
 
   // Load notifications
   useEffect(() => {
@@ -223,7 +230,13 @@ export function Navbar() {
                     </div>
 
                     <button
-                      onClick={() => { logout(); setDropdownOpen(false); }}
+                      onClick={async () => {
+                        setDropdownOpen(false);
+                        await logout();
+                        if (typeof window !== 'undefined') {
+                          window.location.href = '/login';
+                        }
+                      }}
                       className="w-full text-left px-3 py-2 text-xs font-medium text-rose-600 hover:bg-rose-50 rounded-xl flex items-center space-x-2 transition-colors cursor-pointer"
                     >
                       <LogOut className="w-4 h-4" />

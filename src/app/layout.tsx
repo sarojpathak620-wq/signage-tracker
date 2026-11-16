@@ -7,6 +7,7 @@ import { Navbar } from '@/components/layout/Navbar';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { PWAInstallBanner } from '@/components/layout/PWAInstallBanner';
 import { InactivityWatcher } from '@/components/auth/InactivityWatcher';
+import { AuthGuard } from '@/components/auth/AuthGuard';
 
 const inter = Inter({
   subsets: ['latin'],
@@ -46,21 +47,25 @@ export default function RootLayout({
     <html lang="en" className={inter.variable}>
       <body className="min-h-screen bg-slate-50 text-slate-900 antialiased font-sans select-none sm:select-auto">
         <AuthProvider>
-          <div className="flex flex-col min-h-screen">
-            <Suspense fallback={null}>
-              <Navbar />
-            </Suspense>
-            <Suspense fallback={null}>
-              <BottomNav />
-            </Suspense>
-            <main className="flex-1 pb-24 md:pb-8">
-              {children}
-            </main>
-            <PWAInstallBanner />
-            <Suspense fallback={null}>
-              <InactivityWatcher />
-            </Suspense>
-          </div>
+          <Suspense fallback={null}>
+            <AuthGuard>
+              <div className="flex flex-col min-h-screen">
+                <Suspense fallback={null}>
+                  <Navbar />
+                </Suspense>
+                <Suspense fallback={null}>
+                  <BottomNav />
+                </Suspense>
+                <main className="flex-1 pb-24 md:pb-8">
+                  {children}
+                </main>
+                <PWAInstallBanner />
+                <Suspense fallback={null}>
+                  <InactivityWatcher />
+                </Suspense>
+              </div>
+            </AuthGuard>
+          </Suspense>
         </AuthProvider>
       </body>
     </html>
