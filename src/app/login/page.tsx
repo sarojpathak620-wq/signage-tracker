@@ -35,21 +35,16 @@ export default function LoginPage() {
     try {
       const profile = await login(email, password);
       if (profile) {
-        if (profile.role === 'admin') {
-          router.push('/admin');
-        } else if (profile.role === 'bd_executive') {
-          router.push('/bd');
-        } else if (profile.role === 'supervisor') {
-          router.push('/supervisor');
-        } else {
-          router.push('/');
-        }
-      } else {
-        router.push('/');
+        let dest = '/';
+        if (profile.role === 'admin') dest = '/admin/signages';
+        else if (profile.role === 'bd_executive') dest = '/bd';
+        else if (profile.role === 'supervisor') dest = '/supervisor';
+
+        window.location.replace(dest);
+        return;
       }
     } catch (err: any) {
       setError(err.message || 'Login failed');
-    } finally {
       setLoading(false);
     }
   };

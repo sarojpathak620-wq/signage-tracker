@@ -18,31 +18,26 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
     // 1. If not logged in and attempting to view any protected page -> redirect to /login
     if (!user && !isPublic) {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login';
-      } else {
-        router.replace('/login');
-      }
+      router.replace('/login');
       return;
     }
 
     // 2. If already logged in and visiting /login -> redirect to designated portal
     if (user && pathname === '/login') {
-      if (role === 'admin') router.replace('/admin');
-      else if (role === 'bd_executive') router.replace('/bd');
-      else if (role === 'supervisor') router.replace('/supervisor');
-      else router.replace('/');
+      let dest = '/';
+      if (role === 'admin') dest = '/admin/signages';
+      else if (role === 'bd_executive') dest = '/bd';
+      else if (role === 'supervisor') dest = '/supervisor';
+      router.replace(dest);
       return;
     }
 
     // 3. Role enforcement across protected sections
     if (user && role) {
       if (pathname.startsWith('/admin') && role !== 'admin') {
-        if (role === 'bd_executive') router.replace('/bd');
-        else if (role === 'supervisor') router.replace('/supervisor');
+        router.replace(role === 'bd_executive' ? '/bd' : '/supervisor');
       } else if (pathname.startsWith('/bd') && role !== 'bd_executive') {
-        if (role === 'admin') router.replace('/admin');
-        else if (role === 'supervisor') router.replace('/supervisor');
+        router.replace(role === 'admin' ? '/admin/signages' : '/supervisor');
       }
     }
   }, [user, role, loading, pathname, isPublic, router]);
@@ -53,7 +48,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center space-y-3">
           <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-          <span className="text-xs text-slate-500 font-medium">Redirecting to Sign In...</span>
+          <span className="text-xs text-slate-500 font-medium">Loading session...</span>
         </div>
       </div>
     );
