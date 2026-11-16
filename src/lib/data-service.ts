@@ -304,6 +304,33 @@ export const DataService = {
     return profiles[idx];
   },
 
+  async deleteUser(userId: string): Promise<void> {
+    if (isSupabaseConfigured()) {
+      const response = await fetch(`/api/admin/users?userId=${encodeURIComponent(userId)}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.message || 'Failed to delete user');
+      }
+      return;
+    }
+
+    // Demo LocalStorage Fallback
+    const profiles = getStored<Profile[]>(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
+    const signages = getStored<Signage[]>(STORAGE_KEYS.SIGNAGES, INITIAL_SIGNAGES);
+
+    // Unassign signages (set assigned_to to null, do not delete signage)
+    const updatedSignages = signages.map(s => 
+      s.assigned_to === userId ? { ...s, assigned_to: null, assigned_profile: null } : s
+    );
+    setStored(STORAGE_KEYS.SIGNAGES, updatedSignages);
+
+    // Remove from profiles (past updates and photos remain untouched)
+    const filtered = profiles.filter(p => p.id !== userId);
+    setStored(STORAGE_KEYS.PROFILES, filtered);
+  },
+
   // SIGNAGES
   async getSignages(params?: { unit_id?: string; area_id?: string; assigned_to?: string; is_active?: boolean }): Promise<Signage[]> {
     const currentMonth = getCurrentMonthKey();

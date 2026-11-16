@@ -5,10 +5,12 @@ import { Profile, Unit, UserRole } from '@/lib/types';
 import { DataService } from '@/lib/data-service';
 import { 
   Users, UserPlus, Edit2, Shield, Phone, Mail, 
-  Building2, Search, Filter, X, CheckCircle2, AlertCircle 
+  Building2, Search, Filter, X, CheckCircle2, AlertCircle, Trash2 
 } from 'lucide-react';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function AdminUsersPage() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<Profile[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -30,6 +32,38 @@ export default function AdminUsersPage() {
   
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Delete User Confirmation State
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState<Profile | null>(null);
+  const [deletingUser, setDeletingUser] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const isAdmin = currentUser?.role === 'admin';
+  const adminCount = users.filter(u => u.role === 'admin').length;
+  const isSelf = editingUser?.id === currentUser?.id;
+  const isLastAdmin = editingUser?.role === 'admin' && adminCount <= 1;
+  const canDelete = isAdmin && !isSelf && !isLastAdmin;
+
+  const handleConfirmDeleteUser = async () => {
+    if (!confirmDeleteUser) return;
+    try {
+      setDeletingUser(true);
+      setDeleteError(null);
+      await DataService.deleteUser(confirmDeleteUser.id);
+      setFeedback({
+        type: 'success',
+        message: `User "${confirmDeleteUser.full_name}" has been permanently removed. Any assigned signages are now unassigned.`,
+      });
+      setConfirmDeleteUser(null);
+      setIsModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      console.error('Failed to delete user:', err);
+      setDeleteError(err.message || 'Failed to delete user.');
+    } finally {
+      setDeletingUser(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -393,23 +427,114 @@ export default function AdminUsersPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-end space-x-2 pt-4 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-3 min-h-[48px] rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-5 py-3 min-h-[48px] rounded-xl text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-sm cursor-pointer disabled:opacity-50"
-                >
-                  {submitting ? 'Saving...' : editingUser ? 'Save Changes' : 'Invite User'}
-                </button>
+              <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                {/* Bottom-left: Delete User button (Only visible in edit mode for Admins) */}
+                {editingUser && isAdmin ? (
+                  <div className="flex flex-col items-start">
+                    <button
+                      type="button"
+                      disabled={!canDelete || submitting || deletingUser}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setConfirmDeleteUser(editingUser);
+                      }}
+                      className="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors flex items-center space-x-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={
+                        isSelf 
+                          ? 'You cannot delete your own admin account' 
+                          : isLastAdmin 
+                          ? 'Cannot delete the last remaining admin' 
+                          : 'Permanently remove this user'
+                      }
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Delete User</span>
+                    </button>
+                    {isSelf && (
+                      <span className="text-[10px] text-slate-400 mt-1 font-medium">Your account (cannot delete self)</span>
+                    )}
+                    {isLastAdmin && !isSelf && (
+                      <span className="text-[10px] text-amber-600 mt-1 font-medium">Last remaining admin</span>
+                    )}
+                  </div>
+                ) : (
+                  <div />
+                )}
+
+                {/* Bottom-right: Cancel & Save actions */}
+                <div className="flex items-center space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={submitting || deletingUser}
+                    className="px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 shadow-sm cursor-pointer disabled:opacity-50"
+                  >
+                    {submitting ? 'Saving...' : editingUser ? 'Save Changes' : 'Invite User'}
+                  </button>
+                </div>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete User Confirmation Modal */}
+      {confirmDeleteUser && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-base font-bold text-slate-900">
+                Delete User: {confirmDeleteUser.full_name}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1 font-mono">
+                {confirmDeleteUser.email || confirmDeleteUser.role}
+              </p>
+              <p className="text-xs text-slate-600 mt-3 leading-relaxed">
+                This will permanently remove <strong>{confirmDeleteUser.full_name}</strong>&apos;s login access and unassign their signage. Their past inspection history will be kept for records. Continue?
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteUser(null)}
+                disabled={deletingUser}
+                className="min-h-[48px] py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteUser}
+                disabled={deletingUser}
+                className="min-h-[48px] py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center justify-center space-x-1.5 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {deletingUser ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>Permanently Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
