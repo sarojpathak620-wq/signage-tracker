@@ -175,3 +175,27 @@ export interface TravelRequestStop {
   signage?: Signage | null;
   signage_update?: SignageUpdate | null;
 }
+
+export interface ExecutiveVisitStop {
+  signage_id: string;
+  signage_update_id?: string | null;
+  signage_address: string;
+  signage_area_name?: string;
+  signage_unit_name?: string;
+  signage_type: string;
+  condition: SignageCondition;
+  photo_url?: string | null;
+  latitude: number;
+  longitude: number;
+  visited_at: string;
+  distance_from_previous_km: number;
+}
+
+export interface MonthlyTravelSummary {
+  month: string;
+  total_distance_km: number;
+  stops_count: number;
+  stops: ExecutiveVisitStop[];
+  existing_request?: TravelRequest | null;
+  past_requests?: TravelRequest[];
+}

@@ -6,9 +6,10 @@ import {
   PlusCircle, Camera, CheckCircle2, Clock, AlertTriangle,
   MapPin, Search, ShieldCheck, ChevronRight, RefreshCw, 
   AlertOctagon, HelpCircle, Eye, X, ImageOff, Compass, ShieldAlert,
-  Trash2, Lock, Sparkles
+  Trash2, Lock, Sparkles, Navigation, Route, Calendar, CheckCircle, 
+  XCircle, Send, ArrowRight
 } from 'lucide-react';
-import { Signage, SignageStatus, SignageCondition, SignageUpdate } from '@/lib/types';
+import { Signage, SignageStatus, SignageCondition, SignageUpdate, MonthlyTravelSummary, ExecutiveVisitStop, TravelRequest } from '@/lib/types';
 import { DataService, getCurrentMonthKey } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { CameraInspectionModal } from '@/components/signage/CameraInspectionModal';
@@ -22,6 +23,17 @@ export default function BDExecutivePortal() {
   const [selectedSignageForCamera, setSelectedSignageForCamera] = useState<Signage | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [currentMonthName, setCurrentMonthName] = useState('Current Month');
+
+  // Active Tab: 'signages' or 'travel'
+  const [activeTab, setActiveTab] = useState<'signages' | 'travel'>('signages');
+
+  // Travel Summary State
+  const [travelSummary, setTravelSummary] = useState<MonthlyTravelSummary | null>(null);
+  const [travelLoading, setTravelLoading] = useState(false);
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [submittingTravel, setSubmittingTravel] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
   // Full-screen image lightbox state
   const [lightboxData, setLightboxData] = useState<{
@@ -80,14 +92,96 @@ export default function BDExecutivePortal() {
     }
   };
 
+  const loadTravelSummary = async () => {
+    if (!user?.id) return;
+    setTravelLoading(true);
+    try {
+      const summary = await DataService.getMonthlyTravelSummary(user.id, currentMonthKey);
+      setTravelSummary(summary);
+    } catch (e) {
+      console.error('Failed to load travel summary:', e);
+    } finally {
+      setTravelLoading(false);
+    }
+  };
+
   useEffect(() => {
     setCurrentMonthName(new Date().toLocaleString('default', { month: 'long', year: 'numeric' }));
     loadSignages();
+    loadTravelSummary();
   }, [user]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     loadSignages();
+    loadTravelSummary();
+  };
+
+  const handleConfirmSubmitTravel = async () => {
+    if (!user?.id || !travelSummary || travelSummary.stops.length === 0) return;
+    if (!user.unit_id) {
+      setSubmitError('You must be assigned to a hospital unit before submitting travel claims. Please contact Admin.');
+      return;
+    }
+    setSubmittingTravel(true);
+    setSubmitError(null);
+    try {
+      await DataService.submitTravelRequest({
+        bd_executive_id: user.id,
+        unit_id: user.unit_id,
+        month: currentMonthKey,
+        total_distance_km: travelSummary.total_distance_km,
+        stops: travelSummary.stops.map(s => ({
+          signage_id: s.signage_id,
+          signage_update_id: s.signage_update_id || null,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          visited_at: s.visited_at,
+          distance_from_previous_km: s.distance_from_previous_km,
+        })),
+      });
+
+      setSubmitSuccess(`Your travel claim for ${currentMonthName} (${travelSummary.total_distance_km} KM) has been submitted! Notification sent to Unit Head.`);
+      setSubmitModalOpen(false);
+      await loadTravelSummary();
+    } catch (err: any) {
+      console.error('Submit travel request error:', err);
+      setSubmitError(err.message || 'Failed to submit travel request');
+    } finally {
+      setSubmittingTravel(false);
+    }
+  };
+
+  const handleOpenStopPhoto = (stop: ExecutiveVisitStop) => {
+    if (!stop.photo_url) return;
+    setLightboxData({
+      url: stop.photo_url,
+      signage: {
+        id: stop.signage_id,
+        address: stop.signage_address,
+        area: { name: stop.signage_area_name || 'Area' } as any,
+        unit: { name: stop.signage_unit_name || 'Hospital Unit' } as any,
+        type: stop.signage_type as any,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        unit_id: '',
+        area_id: '',
+        is_active: true,
+      },
+      update: {
+        id: stop.signage_update_id || '',
+        signage_id: stop.signage_id,
+        month: currentMonthKey,
+        photo_path: '',
+        photo_url: stop.photo_url,
+        condition: stop.condition,
+        latitude: stop.latitude,
+        longitude: stop.longitude,
+        location_mismatch: false,
+        uploaded_by: user?.id || '',
+        uploaded_at: stop.visited_at,
+      },
+    });
   };
 
   // Filtered signages
@@ -201,7 +295,43 @@ export default function BDExecutivePortal() {
         </div>
       </div>
 
-      {/* Status Counters (Big Touch Targets) */}
+      {/* Primary Section Switcher */}
+      <div className="grid grid-cols-2 gap-2 mb-5 bg-slate-200/70 p-1 rounded-2xl">
+        <button
+          type="button"
+          onClick={() => setActiveTab('signages')}
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
+            activeTab === 'signages'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Camera className="w-3.5 h-3.5 text-blue-600" />
+          <span>My Signages ({signages.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('travel')}
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer relative ${
+            activeTab === 'travel'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Navigation className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Travel &amp; Visits</span>
+          {travelSummary && travelSummary.stops_count > 0 && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-700">
+              {travelSummary.total_distance_km}km
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Tab 1: Signages List */}
+      {activeTab === 'signages' && (
+        <>
+          {/* Status Counters (Big Touch Targets) */}
       <div className="grid grid-cols-3 gap-2.5 mb-5">
         <button
           onClick={() => setStatusFilter(statusFilter === 'Updated' ? 'All' : 'Updated')}
@@ -493,6 +623,303 @@ export default function BDExecutivePortal() {
           })}
         </div>
       )}
+    </>
+  )}
+
+      {/* Tab 2: Travel & Visit Summary */}
+      {activeTab === 'travel' && (
+        <div className="space-y-4 animate-in fade-in duration-200">
+          {/* Submission Feedback Toast */}
+          {submitSuccess && (
+            <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs flex items-start justify-between shadow-xs">
+              <div className="flex items-start space-x-2.5">
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <span className="font-medium">{submitSuccess}</span>
+              </div>
+              <button onClick={() => setSubmitSuccess(null)} className="text-emerald-700 hover:text-emerald-900 p-0.5">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Mileage KPI Card */}
+          <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden">
+            <div className="flex items-center justify-between">
+              <div className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-[11px] font-bold border border-blue-400/20">
+                <Navigation className="w-3.5 h-3.5 text-blue-400" />
+                <span>Haversine GPS Calculated</span>
+              </div>
+              <span className="text-xs font-semibold text-slate-300">
+                {currentMonthName}
+              </span>
+            </div>
+
+            <div className="mt-4 flex items-center justify-between">
+              <div>
+                <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">
+                  {travelSummary?.total_distance_km !== undefined ? travelSummary.total_distance_km.toFixed(1) : '0.0'}{' '}
+                  <span className="text-base sm:text-lg font-bold text-blue-300">KM</span>
+                </div>
+                <p className="text-xs text-slate-300 mt-1">
+                  Total straight-line distance across <strong>{travelSummary?.stops_count || 0} stops</strong>
+                </p>
+              </div>
+
+              <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-cyan-400 border border-white/10 shrink-0">
+                <Route className="w-6 h-6" />
+              </div>
+            </div>
+          </div>
+
+          {/* Travel Request Status & Action Card */}
+          {travelSummary?.existing_request ? (
+            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs transition-all ${
+              travelSummary.existing_request.status === 'approved'
+                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+                : travelSummary.existing_request.status === 'rejected'
+                ? 'bg-rose-50/80 border-rose-300 text-rose-950'
+                : 'bg-amber-50/80 border-amber-300 text-amber-950'
+            }`}>
+              <div className="flex items-start space-x-3">
+                {travelSummary.existing_request.status === 'approved' && (
+                  <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                )}
+                {travelSummary.existing_request.status === 'rejected' && (
+                  <XCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                )}
+                {travelSummary.existing_request.status === 'pending' && (
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                      travelSummary.existing_request.status === 'approved'
+                        ? 'bg-emerald-200 text-emerald-900'
+                        : travelSummary.existing_request.status === 'rejected'
+                        ? 'bg-rose-200 text-rose-900'
+                        : 'bg-amber-200 text-amber-900'
+                    }`}>
+                      {travelSummary.existing_request.status === 'pending' ? 'Pending Unit Head Review' : travelSummary.existing_request.status}
+                    </span>
+                    <span className="text-[11px] font-mono text-slate-500">
+                      {travelSummary.existing_request.month}
+                    </span>
+                  </div>
+
+                  <p className="text-xs mt-2 leading-relaxed">
+                    {travelSummary.existing_request.status === 'pending' && (
+                      <>Your travel claim for <strong>{Number(travelSummary.existing_request.total_distance_km).toFixed(1)} KM</strong> was submitted on {new Date(travelSummary.existing_request.submitted_at).toLocaleDateString()}. Your Unit Head has been notified by email.</>
+                    )}
+                    {travelSummary.existing_request.status === 'approved' && (
+                      <>Your travel claim for <strong>{Number(travelSummary.existing_request.total_distance_km).toFixed(1)} KM</strong> was approved on {new Date(travelSummary.existing_request.reviewed_at!).toLocaleDateString()} by your Unit Head.</>
+                    )}
+                    {travelSummary.existing_request.status === 'rejected' && (
+                      <>Your travel claim for <strong>{Number(travelSummary.existing_request.total_distance_km).toFixed(1)} KM</strong> was rejected on {new Date(travelSummary.existing_request.reviewed_at!).toLocaleDateString()}.</>
+                    )}
+                  </p>
+
+                  {/* Unit Head comment (Prominent especially on rejection) */}
+                  {travelSummary.existing_request.review_comment && (
+                    <div className="mt-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
+                        Unit Head Feedback:
+                      </div>
+                      <p className="text-xs text-slate-800 font-medium italic">
+                        &ldquo;{travelSummary.existing_request.review_comment}&rdquo;
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="mt-2.5 text-[10px] text-slate-500 font-medium">
+                    &bull; One travel reimbursement request is permitted per calendar month.
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs">
+              {travelSummary?.stops_count === 0 ? (
+                <div className="text-center py-4">
+                  <div className="w-10 h-10 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                    <MapPin className="w-5 h-5" />
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-800">No Inspection Stops Yet</h4>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    Take photos of your assigned outdoor signages this month using the GPS camera. Each inspection will automatically log your visited route and straight-line travel distance.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-sm font-bold text-slate-900">Submit Monthly Travel Request</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        {travelSummary?.stops_count} visited signage stops ready for review.
+                      </p>
+                    </div>
+                    <span className="font-mono text-base font-black text-blue-600">
+                      {travelSummary?.total_distance_km} KM
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-slate-500 leading-relaxed">
+                    Submitting will lock your monthly mileage claim and notify your Unit Head via email with full route details for review &amp; reimbursement approval.
+                  </p>
+
+                  <button
+                    onClick={() => {
+                      setSubmitError(null);
+                      setSubmitModalOpen(true);
+                    }}
+                    className="w-full min-h-[48px] py-3 px-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-xs shadow-md shadow-blue-500/25 flex items-center justify-center space-x-2 transition-all cursor-pointer"
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>Submit Travel Request ({travelSummary?.total_distance_km} KM)</span>
+                  </button>
+                  <p className="text-center text-[10px] text-slate-400">
+                    You can only submit ONE travel request per month.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Consecutive Visits List */}
+          <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">
+                  {currentMonthName} Inspection Visits ({travelSummary?.stops_count || 0})
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  Consecutive stops ordered chronologically with distance increments.
+                </p>
+              </div>
+              <button
+                onClick={handleRefresh}
+                className="text-xs text-blue-600 font-semibold flex items-center space-x-1"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {travelLoading ? (
+              <div className="py-8 text-center">
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                <p className="text-xs text-slate-400 mt-2">Calculating distances...</p>
+              </div>
+            ) : travelSummary?.stops.length === 0 ? (
+              <div className="py-8 text-center text-xs text-slate-400">
+                No inspection visits recorded for {currentMonthName}.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {travelSummary?.stops.map((stop, idx) => (
+                  <div
+                    key={stop.signage_update_id || `${stop.signage_id}-${idx}`}
+                    className="p-3 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-3 hover:bg-slate-100/60 transition-colors"
+                  >
+                    <div className="flex items-start space-x-3 min-w-0">
+                      {/* Photo Thumbnail */}
+                      {stop.photo_url ? (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenStopPhoto(stop)}
+                          className="w-12 h-12 rounded-xl overflow-hidden bg-slate-900 shrink-0 border border-slate-200 relative group cursor-pointer"
+                          title="Click to view full photo"
+                        >
+                          <img
+                            src={stop.photo_url}
+                            alt="Inspection evidence"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          />
+                          <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="w-4 h-4 text-white" />
+                          </div>
+                        </button>
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400 shrink-0">
+                          <Camera className="w-5 h-5" />
+                        </div>
+                      )}
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 text-slate-800">
+                            Stop #{idx + 1}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-500">
+                            {new Date(stop.visited_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(stop.visited_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                        <h4 className="text-xs font-bold text-slate-900 truncate mt-1">
+                          {stop.signage_address}
+                        </h4>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          {stop.signage_area_name ? `${stop.signage_area_name} • ` : ''}{stop.signage_type}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Distance from previous stop badge */}
+                    <div className="text-right shrink-0">
+                      {idx === 0 ? (
+                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                          Start (0.0 km)
+                        </span>
+                      ) : (
+                        <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                          <ArrowRight className="w-3 h-3 text-blue-500" />
+                          <span>+{stop.distance_from_previous_km} KM</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Past Months Requests History */}
+          {travelSummary?.past_requests && travelSummary.past_requests.length > 0 && (
+            <div className="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 shadow-xs space-y-3">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+                Past Travel Requests History
+              </h3>
+              <div className="divide-y divide-slate-100">
+                {travelSummary.past_requests.map((pastReq) => (
+                  <div key={pastReq.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-xs font-bold text-slate-900">{pastReq.month}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                          pastReq.status === 'approved'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : pastReq.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}>
+                          {pastReq.status}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {Number(pastReq.total_distance_km).toFixed(1)} KM • Submitted {new Date(pastReq.submitted_at).toLocaleDateString()}
+                      </div>
+                      {pastReq.review_comment && (
+                        <p className="text-[11px] text-slate-600 italic mt-1">
+                          &ldquo;{pastReq.review_comment}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Floating Add Signage Button (Mobile) */}
       <div className="fixed right-4 bottom-20 z-30">
@@ -599,6 +1026,74 @@ export default function BDExecutivePortal() {
                   <>
                     <Trash2 className="w-4 h-4" />
                     <span>Yes, Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Submit Travel Request Confirmation Modal */}
+      {submitModalOpen && travelSummary && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center mx-auto">
+              <Navigation className="w-6 h-6" />
+            </div>
+
+            <div className="text-center">
+              <h3 className="text-base font-bold text-slate-900">Submit Travel Request?</h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Hospital Unit: <strong>{user?.unit?.name || 'Assigned Unit'}</strong>
+              </p>
+            </div>
+
+            <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Period:</span>
+                <span className="font-bold text-slate-800">{currentMonthName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Total Distance:</span>
+                <span className="font-mono font-bold text-blue-600 text-sm">{travelSummary.total_distance_km} KM</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Visited Stops:</span>
+                <span className="font-bold text-slate-800">{travelSummary.stops_count} locations</span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed text-center">
+              Once submitted, an email notification will be sent to your Unit Head to review and approve your mileage claim. You cannot submit again for this month.
+            </p>
+
+            {submitError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 font-medium">
+                {submitError}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setSubmitModalOpen(false)}
+                disabled={submittingTravel}
+                className="min-h-[48px] py-2.5 px-4 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSubmitTravel}
+                disabled={submittingTravel}
+                className="min-h-[48px] py-2.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 flex items-center justify-center space-x-1.5 transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {submittingTravel ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Confirm &amp; Send</span>
                   </>
                 )}
               </button>

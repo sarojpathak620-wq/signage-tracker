@@ -36,10 +36,11 @@ CREATE TABLE IF NOT EXISTS public.travel_request_stops (
     distance_from_previous_km NUMERIC(10, 2) NOT NULL DEFAULT 0
 );
 
--- 4. CREATE INDEXES FOR FAST LOOKUPS
+-- 4. CREATE INDEXES FOR FAST LOOKUPS & UNIQUE MONTHLY CLAIMS
 CREATE INDEX IF NOT EXISTS idx_travel_requests_unit ON public.travel_requests(unit_id);
 CREATE INDEX IF NOT EXISTS idx_travel_requests_bd ON public.travel_requests(bd_executive_id);
 CREATE INDEX IF NOT EXISTS idx_travel_requests_status ON public.travel_requests(status);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_travel_requests_bd_month ON public.travel_requests(bd_executive_id, month);
 CREATE INDEX IF NOT EXISTS idx_travel_request_stops_req ON public.travel_request_stops(travel_request_id);
 
 -- 5. ENABLE ROW LEVEL SECURITY (RLS)

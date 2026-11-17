@@ -3,7 +3,8 @@
 import {
   Unit, Area, Profile, Signage, SignageUpdate,
   AppSettings, NotificationItem, SignageStatusView, SignageType, SignageCondition, SignageStatus,
-  TravelRequest, TravelRequestStop, TravelRequestStatus
+  TravelRequest, TravelRequestStop, TravelRequestStatus,
+  ExecutiveVisitStop, MonthlyTravelSummary
 } from './types';
 import {
   INITIAL_UNITS, INITIAL_AREAS, INITIAL_PROFILES,
@@ -1264,6 +1265,18 @@ export const DataService = {
       if (error) {
         throw new Error(`Failed to update travel request: ${error.message}`);
       }
+
+      // Notify BD Executive via Resend & in-app
+      try {
+        fetch('/api/travel-requests/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reviewed', requestId: params.requestId }),
+        }).catch(e => console.warn('Review notification trigger error:', e));
+      } catch (notifyErr) {
+        console.warn('Could not trigger review notification API:', notifyErr);
+      }
+
       return data as TravelRequest;
     }
 
@@ -1295,6 +1308,19 @@ export const DataService = {
   }): Promise<TravelRequest> {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
+
+      // Enforce ONLY ONE travel request per month for this executive
+      const { data: existing } = await supabase
+        .from('travel_requests')
+        .select('id, status')
+        .eq('bd_executive_id', data.bd_executive_id)
+        .eq('month', data.month)
+        .maybeSingle();
+
+      if (existing) {
+        throw new Error(`A travel request for ${data.month} has already been submitted (Status: ${existing.status.toUpperCase()}). Only one request per month is allowed.`);
+      }
+
       const { data: request, error: reqErr } = await supabase
         .from('travel_requests')
         .insert({
@@ -1328,10 +1354,26 @@ export const DataService = {
         if (stopsErr) console.warn('Warning inserting travel request stops:', stopsErr);
       }
 
+      // Trigger Email & In-App Notification via Resend to Unit Head
+      try {
+        fetch('/api/travel-requests/notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submitted', requestId: request.id }),
+        }).catch(e => console.warn('Submission notification trigger error:', e));
+      } catch (notifyErr) {
+        console.warn('Could not trigger submission notification API:', notifyErr);
+      }
+
       return request as TravelRequest;
     }
 
     const requests = getStored<TravelRequest[]>(STORAGE_KEYS.TRAVEL_REQUESTS, []);
+    const existing = requests.find(r => r.bd_executive_id === data.bd_executive_id && r.month === data.month);
+    if (existing) {
+      throw new Error(`A travel request for ${data.month} has already been submitted (Status: ${existing.status.toUpperCase()}). Only one request per month is allowed.`);
+    }
+
     const newReq: TravelRequest = {
       id: crypto.randomUUID(),
       bd_executive_id: data.bd_executive_id,
@@ -1345,5 +1387,154 @@ export const DataService = {
     requests.unshift(newReq);
     setStored(STORAGE_KEYS.TRAVEL_REQUESTS, requests);
     return newReq;
+  },
+
+  // BD EXECUTIVE: MONTHLY VISITS & TRAVEL DISTANCE SUMMARY
+  async getMonthlyTravelSummary(
+    executiveId: string,
+    monthKey: string = getCurrentMonthKey()
+  ): Promise<MonthlyTravelSummary> {
+    let rawVisits: any[] = [];
+    let existingRequest: TravelRequest | null = null;
+    let pastRequests: TravelRequest[] = [];
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      try {
+        // 1. Fetch current month updates uploaded by this executive
+        const { data: updates, error: updateErr } = await supabase
+          .from('signage_updates')
+          .select('*, signage:signages(*, area:areas(*), unit:units(*))')
+          .eq('month', monthKey)
+          .eq('uploaded_by', executiveId)
+          .order('uploaded_at', { ascending: true });
+
+        if (!updateErr && updates) {
+          rawVisits = updates;
+        }
+
+        // Fallback: check updates for signages assigned to this executive
+        if (rawVisits.length === 0) {
+          const { data: mySignages } = await supabase
+            .from('signages')
+            .select('id, address, type, area:areas(*), unit:units(*)')
+            .eq('assigned_to', executiveId);
+
+          if (mySignages && mySignages.length > 0) {
+            const signageIds = mySignages.map(s => s.id);
+            const { data: fallbackUpdates } = await supabase
+              .from('signage_updates')
+              .select('*')
+              .eq('month', monthKey)
+              .in('signage_id', signageIds)
+              .order('uploaded_at', { ascending: true });
+
+            if (fallbackUpdates) {
+              rawVisits = fallbackUpdates.map(u => ({
+                ...u,
+                signage: mySignages.find(s => s.id === u.signage_id),
+              }));
+            }
+          }
+        }
+
+        // 2. Fetch travel requests for this executive
+        const { data: reqs } = await supabase
+          .from('travel_requests')
+          .select('*, reviewer:profiles!travel_requests_reviewed_by_fkey(*), unit:units(*)')
+          .eq('bd_executive_id', executiveId)
+          .order('month', { ascending: false });
+
+        if (reqs) {
+          pastRequests = reqs as TravelRequest[];
+          existingRequest = pastRequests.find(r => r.month === monthKey) || null;
+        } else {
+          // Simple query fallback
+          const { data: simpleReqs } = await supabase
+            .from('travel_requests')
+            .select('*')
+            .eq('bd_executive_id', executiveId)
+            .order('month', { ascending: false });
+          if (simpleReqs) {
+            pastRequests = simpleReqs as TravelRequest[];
+            existingRequest = pastRequests.find(r => r.month === monthKey) || null;
+          }
+        }
+      } catch (err) {
+        console.warn('Error fetching monthly travel data from Supabase:', err);
+      }
+    } else {
+      // LocalStorage Demo Mode
+      const updates = getStored<SignageUpdate[]>(STORAGE_KEYS.UPDATES, INITIAL_UPDATES);
+      const signages = getStored<Signage[]>(STORAGE_KEYS.SIGNAGES, INITIAL_SIGNAGES);
+      const areas = getStored<Area[]>(STORAGE_KEYS.AREAS, INITIAL_AREAS);
+      const units = getStored<Unit[]>(STORAGE_KEYS.UNITS, INITIAL_UNITS);
+
+      rawVisits = updates
+        .filter(u => u.month === monthKey && (u.uploaded_by === executiveId || signages.some(s => s.id === u.signage_id && s.assigned_to === executiveId)))
+        .map(u => {
+          const s = signages.find(sig => sig.id === u.signage_id);
+          return {
+            ...u,
+            signage: s ? {
+              ...s,
+              area: areas.find(a => a.id === s.area_id),
+              unit: units.find(unit => unit.id === s.unit_id),
+            } : null,
+          };
+        });
+
+      const allRequests = getStored<TravelRequest[]>(STORAGE_KEYS.TRAVEL_REQUESTS, []);
+      pastRequests = allRequests.filter(r => r.bd_executive_id === executiveId);
+      existingRequest = pastRequests.find(r => r.month === monthKey) || null;
+    }
+
+    // Sort visits by uploaded_at ascending
+    rawVisits.sort((a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime());
+
+    // Calculate consecutive distances using Haversine
+    let cumulativeDistanceKm = 0;
+    const stops: ExecutiveVisitStop[] = await Promise.all(
+      rawVisits.map(async (v, index) => {
+        let distFromPrev = 0;
+        if (index > 0) {
+          const prev = rawVisits[index - 1];
+          const distMeters = calculateDistanceMeters(prev.latitude, prev.longitude, v.latitude, v.longitude);
+          distFromPrev = Number((distMeters / 1000).toFixed(2));
+        }
+        cumulativeDistanceKm += distFromPrev;
+
+        let photoUrl = v.photo_url;
+        if (!photoUrl && v.photo_path) {
+          photoUrl = await getSignedPhotoUrl(v.photo_path);
+        }
+
+        return {
+          signage_id: v.signage_id,
+          signage_update_id: v.id,
+          signage_address: v.signage?.address || 'Signage Site',
+          signage_area_name: v.signage?.area?.name || '',
+          signage_unit_name: v.signage?.unit?.name || '',
+          signage_type: v.signage?.type || 'Outdoor Signage',
+          condition: v.condition,
+          photo_url: photoUrl || v.photo_path,
+          latitude: v.latitude,
+          longitude: v.longitude,
+          visited_at: v.uploaded_at,
+          distance_from_previous_km: distFromPrev,
+        };
+      })
+    );
+
+    const totalKm = Number(cumulativeDistanceKm.toFixed(2));
+
+    return {
+      month: monthKey,
+      total_distance_km: totalKm,
+      stops_count: stops.length,
+      stops,
+      existing_request: existingRequest,
+      past_requests: pastRequests,
+    };
   },
 };
