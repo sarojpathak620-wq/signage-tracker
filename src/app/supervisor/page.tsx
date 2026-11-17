@@ -3,14 +3,15 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Signage, Unit, Area, SignageCondition, SignageStatus, TravelRequest, TravelRequestStatus } from '@/lib/types';
-import { DataService } from '@/lib/data-service';
+import { DataService, getUnitBaseCoordinates, buildGoogleMapsDirectionsUrl } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { 
   Building2, MapPin, CheckCircle2, Clock, AlertTriangle, 
   Map, FileBarChart2, Search, Filter, Shield, 
   Sparkles, RefreshCw, Phone, ExternalLink, Camera, 
   AlertOctagon, HelpCircle, Send, PlayCircle, Eye, X, 
-  Download, ArrowUpRight, Navigation, CheckCircle, XCircle, MessageSquare
+  Download, ArrowUpRight, Navigation, CheckCircle, XCircle, MessageSquare,
+  Compass, Route
 } from 'lucide-react';
 
 export default function SupervisorDashboard() {
@@ -819,15 +820,47 @@ export default function SupervisorDashboard() {
                             Submitted {new Date(req.submitted_at).toLocaleDateString()}
                           </div>
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <div className="font-mono font-bold text-slate-900 text-sm">
-                            {Number(req.total_distance_km).toFixed(1)} km
+                        <td className="py-3 px-4">
+                          <div className="flex items-center space-x-1.5">
+                            <span className="font-mono font-bold text-slate-900 text-sm">
+                              {Number(req.total_distance_km).toFixed(1)} km
+                            </span>
+                            {req.is_round_trip && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                                Round Trip
+                              </span>
+                            )}
                           </div>
-                          {req.stops && req.stops.length > 0 && (
-                            <div className="text-[10px] text-slate-400">
-                              {req.stops.length} signage stops visited
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {req.start_location ? `Start: ${req.start_location}` : 'Start: Hospital Office'}
+                          </div>
+                          {req.travel_purpose && (
+                            <div className="text-[10px] text-slate-600 italic mt-0.5 max-w-[200px] truncate" title={req.travel_purpose}>
+                              &ldquo;{req.travel_purpose}&rdquo;
                             </div>
                           )}
+                          {(() => {
+                            const baseLoc = getUnitBaseCoordinates(req.unit);
+                            const gmapsUrl = buildGoogleMapsDirectionsUrl({
+                              originLat: baseLoc.latitude,
+                              originLng: baseLoc.longitude,
+                              originName: baseLoc.name,
+                              stops: req.stops?.map(s => ({ lat: Number(s.latitude), lng: Number(s.longitude) })) || [],
+                              isRoundTrip: Boolean(req.is_round_trip),
+                            });
+                            return (
+                              <a
+                                href={gmapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center space-x-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 mt-1 cursor-pointer"
+                              >
+                                <Compass className="w-3 h-3" />
+                                <span>Driving Directions</span>
+                                <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                              </a>
+                            );
+                          })()}
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap">
                           {isPending && (
@@ -1069,9 +1102,55 @@ export default function SupervisorDashboard() {
                   <span className="font-bold text-slate-800">{reviewModal.request.month}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-500">Total Distance:</span>
-                  <span className="font-mono font-bold text-blue-600">{Number(reviewModal.request.total_distance_km).toFixed(1)} km</span>
+                  <span className="text-slate-500">Starting Location:</span>
+                  <span className="font-semibold text-slate-800 truncate max-w-[200px]">
+                    {reviewModal.request.start_location || 'Hospital Base Office'}
+                  </span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Trip Type:</span>
+                  <span className="font-semibold text-slate-800">
+                    {reviewModal.request.is_round_trip ? 'Round Trip (Returned to Base)' : 'One-way Trip'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-t border-slate-200/60 pt-1">
+                  <span className="text-slate-700 font-bold">Total Claimed Distance:</span>
+                  <span className="font-mono font-black text-blue-600 text-sm">
+                    {Number(reviewModal.request.total_distance_km).toFixed(1)} km
+                  </span>
+                </div>
+                {reviewModal.request.travel_purpose && (
+                  <div className="border-t border-slate-200/60 pt-1">
+                    <span className="text-slate-500 block mb-0.5">Purpose / Camp Notes:</span>
+                    <span className="font-medium text-slate-700 italic block line-clamp-2">
+                      &ldquo;{reviewModal.request.travel_purpose}&rdquo;
+                    </span>
+                  </div>
+                )}
+                {(() => {
+                  const baseLoc = getUnitBaseCoordinates(reviewModal.request.unit);
+                  const modalGmapsUrl = buildGoogleMapsDirectionsUrl({
+                    originLat: baseLoc.latitude,
+                    originLng: baseLoc.longitude,
+                    originName: baseLoc.name,
+                    stops: reviewModal.request.stops?.map(s => ({ lat: Number(s.latitude), lng: Number(s.longitude) })) || [],
+                    isRoundTrip: Boolean(reviewModal.request.is_round_trip),
+                  });
+                  return (
+                    <div className="pt-2 border-t border-slate-200/60">
+                      <a
+                        href={modalGmapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 font-bold text-xs border border-blue-200 cursor-pointer transition-colors w-full justify-center shadow-2xs"
+                      >
+                        <Compass className="w-3.5 h-3.5 text-blue-600" />
+                        <span>Verify Driving Route on Google Maps</span>
+                        <ExternalLink className="w-3 h-3 ml-0.5 opacity-80" />
+                      </a>
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>

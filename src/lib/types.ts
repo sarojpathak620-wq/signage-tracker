@@ -10,6 +10,9 @@ export interface Unit {
   id: string;
   name: string;
   city: string;
+  address?: string;
+  latitude?: number;
+  longitude?: number;
   created_at?: string;
   _count?: {
     areas?: number;
@@ -161,6 +164,9 @@ export interface TravelRequest {
   unit?: Unit | null;
   reviewer?: Profile | null;
   stops?: TravelRequestStop[];
+  start_location?: string | null;
+  is_round_trip?: boolean;
+  travel_purpose?: string | null;
 }
 
 export interface TravelRequestStop {
@@ -196,6 +202,14 @@ export interface MonthlyTravelSummary {
   total_distance_km: number;
   stops_count: number;
   stops: ExecutiveVisitStop[];
+  origin?: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+  };
+  google_maps_url?: string;
+  is_round_trip?: boolean;
   existing_request?: TravelRequest | null;
   past_requests?: TravelRequest[];
 }

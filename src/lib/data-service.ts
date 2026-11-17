@@ -42,6 +42,160 @@ export function calculateDistanceMeters(lat1: number, lon1: number, lat2: number
   return Math.round(R * c);
 }
 
+export interface UnitBaseLocation {
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export const SANKARA_HOSPITAL_LOCATIONS: Record<string, UnitBaseLocation> = {
+  jaipur: {
+    name: 'Sankara Eye Hospital, Jaipur',
+    address: 'Sector 2, Vidhyadhar Nagar, Jaipur, Rajasthan 302039',
+    latitude: 26.9678,
+    longitude: 75.7725,
+  },
+  bangalore: {
+    name: 'Sankara Eye Hospital, Bangalore',
+    address: 'Varthur Main Rd, Kundalahalli Gate, Bengaluru, Karnataka 560037',
+    latitude: 12.9602,
+    longitude: 77.7126,
+  },
+  coimbatore: {
+    name: 'Sankara Eye Hospital, Coimbatore (Sivanandapuram)',
+    address: 'Sivanandapuram, Saravanampatti, Coimbatore, Tamil Nadu 641035',
+    latitude: 11.0561,
+    longitude: 76.9976,
+  },
+  anand: {
+    name: 'Sankara Eye Hospital, Anand',
+    address: 'Mogar, Anand, Gujarat 388340',
+    latitude: 22.5645,
+    longitude: 72.9289,
+  },
+  ludhiana: {
+    name: 'Sankara Eye Hospital, Ludhiana',
+    address: 'GT Road, Near Verka Milk Plant, Ludhiana, Punjab 141001',
+    latitude: 30.9010,
+    longitude: 75.8573,
+  },
+  kanpur: {
+    name: 'Sankara Eye Hospital, Kanpur',
+    address: 'Kalyanpur, Kanpur, Uttar Pradesh 208017',
+    latitude: 26.4499,
+    longitude: 80.3319,
+  },
+  varanasi: {
+    name: 'Sankara Eye Hospital, Varanasi',
+    address: 'Harhua, Airport Road, Varanasi, Uttar Pradesh 221105',
+    latitude: 25.3176,
+    longitude: 82.9739,
+  },
+  guntur: {
+    name: 'Sankara Eye Hospital, Guntur',
+    address: 'Pedakakani, Guntur, Andhra Pradesh 522509',
+    latitude: 16.3067,
+    longitude: 80.4365,
+  },
+  hyderabad: {
+    name: 'Sankara Eye Hospital, Hyderabad',
+    address: 'Gachibowli, Hyderabad, Telangana 500032',
+    latitude: 17.4401,
+    longitude: 78.3489,
+  },
+  indore: {
+    name: 'Sankara Eye Hospital, Indore',
+    address: 'Bicholi Mardana, Indore, Madhya Pradesh 452016',
+    latitude: 22.7196,
+    longitude: 75.8577,
+  },
+  panvel: {
+    name: 'Sankara Eye Hospital, Panvel (Navi Mumbai)',
+    address: 'Sector 19, New Panvel, Navi Mumbai, Maharashtra 410206',
+    latitude: 18.9894,
+    longitude: 73.1175,
+  },
+  shimoga: {
+    name: 'Sankara Eye Hospital, Shimoga',
+    address: 'Mattur Road, Harakere, Shimoga, Karnataka 577203',
+    latitude: 13.9299,
+    longitude: 75.5681,
+  },
+  chennai: {
+    name: 'Sankara Eye Hospital, Chennai (Pammal)',
+    address: 'Pammal, Chennai, Tamil Nadu 600075',
+    latitude: 12.9675,
+    longitude: 80.1491,
+  },
+  krishnankoil: {
+    name: 'Sankara Eye Hospital, Krishnankoil',
+    address: 'Srivilliputtur, Krishnankoil, Tamil Nadu 626126',
+    latitude: 9.5982,
+    longitude: 77.6369,
+  },
+};
+
+export function getUnitBaseCoordinates(unit?: { name?: string; city?: string; latitude?: number; longitude?: number; address?: string } | null): UnitBaseLocation {
+  if (unit?.latitude && unit?.longitude) {
+    return {
+      name: unit.name || 'Hospital Base Office',
+      address: unit.address || `${unit.name || 'Hospital Unit'}, ${unit.city || ''}`,
+      latitude: Number(unit.latitude),
+      longitude: Number(unit.longitude),
+    };
+  }
+
+  const query = `${unit?.name || ''} ${unit?.city || ''}`.toLowerCase();
+  for (const [key, loc] of Object.entries(SANKARA_HOSPITAL_LOCATIONS)) {
+    if (query.includes(key)) {
+      return {
+        ...loc,
+        name: unit?.name ? `${unit.name} (${loc.name})` : loc.name,
+      };
+    }
+  }
+
+  // Default fallback: Jaipur hospital unit
+  return SANKARA_HOSPITAL_LOCATIONS.jaipur;
+}
+
+export function buildGoogleMapsDirectionsUrl(params: {
+  originLat: number;
+  originLng: number;
+  originName?: string;
+  stops: { lat: number; lng: number; label?: string }[];
+  isRoundTrip?: boolean;
+}): string {
+  const { originLat, originLng, stops, isRoundTrip = false } = params;
+  if (!stops || stops.length === 0) {
+    return `https://www.google.com/maps/search/?api=1&query=${originLat},${originLng}`;
+  }
+
+  const originStr = `${originLat},${originLng}`;
+  let destStr = '';
+  let waypointsStr = '';
+
+  if (isRoundTrip) {
+    destStr = originStr;
+    waypointsStr = stops.map(s => `${s.lat},${s.lng}`).join('|');
+  } else if (stops.length === 1) {
+    destStr = `${stops[0].lat},${stops[0].lng}`;
+  } else {
+    destStr = `${stops[stops.length - 1].lat},${stops[stops.length - 1].lng}`;
+    const intermediateStops = stops.slice(0, stops.length - 1);
+    if (intermediateStops.length > 0) {
+      waypointsStr = intermediateStops.map(s => `${s.lat},${s.lng}`).join('|');
+    }
+  }
+
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(originStr)}&destination=${encodeURIComponent(destStr)}&travelmode=driving`;
+  if (waypointsStr) {
+    url += `&waypoints=${encodeURIComponent(waypointsStr)}`;
+  }
+  return url;
+}
+
 // Helper to get current month first-day string: 'YYYY-MM-01'
 export function getCurrentMonthKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -1297,6 +1451,9 @@ export const DataService = {
     unit_id: string;
     month: string;
     total_distance_km: number;
+    start_location?: string | null;
+    is_round_trip?: boolean;
+    travel_purpose?: string | null;
     stops: Array<{
       signage_id: string;
       signage_update_id?: string | null;
@@ -1309,7 +1466,7 @@ export const DataService = {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
 
-      // Enforce ONLY ONE travel request per month for this executive
+      // Check for existing request for this month
       const { data: existing } = await supabase
         .from('travel_requests')
         .select('id, status')
@@ -1317,24 +1474,59 @@ export const DataService = {
         .eq('month', data.month)
         .maybeSingle();
 
-      if (existing) {
-        throw new Error(`A travel request for ${data.month} has already been submitted (Status: ${existing.status.toUpperCase()}). Only one request per month is allowed.`);
+      if (existing && existing.status !== 'rejected') {
+        throw new Error(`A travel request for ${data.month} has already been submitted (Status: ${existing.status.toUpperCase()}). Only one pending or approved request per month is allowed.`);
       }
 
-      const { data: request, error: reqErr } = await supabase
-        .from('travel_requests')
-        .insert({
-          bd_executive_id: data.bd_executive_id,
-          unit_id: data.unit_id,
-          month: data.month,
-          total_distance_km: data.total_distance_km,
-          status: 'pending',
-          submitted_at: new Date().toISOString(),
-        })
-        .select('*')
-        .single();
+      let request: any = null;
 
-      if (reqErr) throw new Error(`Failed to create travel request: ${reqErr.message}`);
+      if (existing && existing.status === 'rejected') {
+        // Re-submit / update existing rejected request to pending
+        const { data: updated, error: upErr } = await supabase
+          .from('travel_requests')
+          .update({
+            total_distance_km: data.total_distance_km,
+            start_location: data.start_location || 'Hospital Base Office',
+            is_round_trip: data.is_round_trip ?? false,
+            travel_purpose: data.travel_purpose || null,
+            status: 'pending',
+            submitted_at: new Date().toISOString(),
+            reviewed_by: null,
+            reviewed_at: null,
+            review_comment: null,
+          })
+          .eq('id', existing.id)
+          .select('*')
+          .single();
+
+        if (upErr) throw new Error(`Failed to update travel request: ${upErr.message}`);
+        request = updated;
+
+        // Clear old stops to replace with updated route
+        await supabase
+          .from('travel_request_stops')
+          .delete()
+          .eq('travel_request_id', existing.id);
+      } else {
+        const { data: created, error: reqErr } = await supabase
+          .from('travel_requests')
+          .insert({
+            bd_executive_id: data.bd_executive_id,
+            unit_id: data.unit_id,
+            month: data.month,
+            total_distance_km: data.total_distance_km,
+            start_location: data.start_location || 'Hospital Base Office',
+            is_round_trip: data.is_round_trip ?? false,
+            travel_purpose: data.travel_purpose || null,
+            status: 'pending',
+            submitted_at: new Date().toISOString(),
+          })
+          .select('*')
+          .single();
+
+        if (reqErr) throw new Error(`Failed to create travel request: ${reqErr.message}`);
+        request = created;
+      }
 
       if (data.stops.length > 0) {
         const stopsPayload = data.stops.map(s => ({
@@ -1369,9 +1561,27 @@ export const DataService = {
     }
 
     const requests = getStored<TravelRequest[]>(STORAGE_KEYS.TRAVEL_REQUESTS, []);
-    const existing = requests.find(r => r.bd_executive_id === data.bd_executive_id && r.month === data.month);
-    if (existing) {
-      throw new Error(`A travel request for ${data.month} has already been submitted (Status: ${existing.status.toUpperCase()}). Only one request per month is allowed.`);
+    const existingIdx = requests.findIndex(r => r.bd_executive_id === data.bd_executive_id && r.month === data.month);
+
+    if (existingIdx !== -1 && requests[existingIdx].status !== 'rejected') {
+      throw new Error(`A travel request for ${data.month} has already been submitted (Status: ${requests[existingIdx].status.toUpperCase()}). Only one pending or approved request per month is allowed.`);
+    }
+
+    if (existingIdx !== -1 && requests[existingIdx].status === 'rejected') {
+      requests[existingIdx] = {
+        ...requests[existingIdx],
+        total_distance_km: data.total_distance_km,
+        start_location: data.start_location || 'Hospital Base Office',
+        is_round_trip: data.is_round_trip ?? false,
+        travel_purpose: data.travel_purpose || null,
+        status: 'pending',
+        submitted_at: new Date().toISOString(),
+        reviewed_by: null,
+        reviewed_at: null,
+        review_comment: null,
+      };
+      setStored(STORAGE_KEYS.TRAVEL_REQUESTS, requests);
+      return requests[existingIdx];
     }
 
     const newReq: TravelRequest = {
@@ -1380,6 +1590,9 @@ export const DataService = {
       unit_id: data.unit_id,
       month: data.month,
       total_distance_km: data.total_distance_km,
+      start_location: data.start_location || 'Hospital Base Office',
+      is_round_trip: data.is_round_trip ?? false,
+      travel_purpose: data.travel_purpose || null,
       status: 'pending',
       submitted_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
@@ -1392,15 +1605,28 @@ export const DataService = {
   // BD EXECUTIVE: MONTHLY VISITS & TRAVEL DISTANCE SUMMARY
   async getMonthlyTravelSummary(
     executiveId: string,
-    monthKey: string = getCurrentMonthKey()
+    monthKey: string = getCurrentMonthKey(),
+    options?: { isRoundTrip?: boolean; startLocation?: string }
   ): Promise<MonthlyTravelSummary> {
     let rawVisits: any[] = [];
     let existingRequest: TravelRequest | null = null;
     let pastRequests: TravelRequest[] = [];
+    let userUnit: any = null;
 
     if (isSupabaseConfigured()) {
       const supabase = createClient();
       try {
+        // Fetch executive's assigned unit
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('id, unit_id, unit:units(*)')
+          .eq('id', executiveId)
+          .maybeSingle();
+
+        if (profileData?.unit) {
+          userUnit = profileData.unit;
+        }
+
         // 1. Fetch current month updates uploaded by this executive
         const { data: updates, error: updateErr } = await supabase
           .from('signage_updates')
@@ -1441,7 +1667,7 @@ export const DataService = {
         // 2. Fetch travel requests for this executive
         const { data: reqs } = await supabase
           .from('travel_requests')
-          .select('*, reviewer:profiles!travel_requests_reviewed_by_fkey(*), unit:units(*)')
+          .select('*, reviewer:profiles!travel_requests_reviewed_by_fkey(*), unit:units(*), stops:travel_request_stops(*)')
           .eq('bd_executive_id', executiveId)
           .order('month', { ascending: false });
 
@@ -1469,6 +1695,10 @@ export const DataService = {
       const signages = getStored<Signage[]>(STORAGE_KEYS.SIGNAGES, INITIAL_SIGNAGES);
       const areas = getStored<Area[]>(STORAGE_KEYS.AREAS, INITIAL_AREAS);
       const units = getStored<Unit[]>(STORAGE_KEYS.UNITS, INITIAL_UNITS);
+      const profiles = getStored<Profile[]>(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
+
+      const userProfile = profiles.find(p => p.id === executiveId);
+      userUnit = userProfile?.unit || units.find(u => u.id === userProfile?.unit_id) || null;
 
       rawVisits = updates
         .filter(u => u.month === monthKey && (u.uploaded_by === executiveId || signages.some(s => s.id === u.signage_id && s.assigned_to === executiveId)))
@@ -1489,17 +1719,38 @@ export const DataService = {
       existingRequest = pastRequests.find(r => r.month === monthKey) || null;
     }
 
+    // Determine base hospital office coordinates
+    const baseLocation = getUnitBaseCoordinates(userUnit || rawVisits[0]?.signage?.unit || null);
+
     // Sort visits by uploaded_at ascending
     rawVisits.sort((a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime());
 
-    // Calculate consecutive distances using Haversine
+    // Check round trip option
+    const isRoundTrip = options?.isRoundTrip ?? existingRequest?.is_round_trip ?? false;
+
+    // Calculate distances: Leg 1 starts from Hospital Base Office (or Camp) to Stop #1
     let cumulativeDistanceKm = 0;
     const stops: ExecutiveVisitStop[] = await Promise.all(
       rawVisits.map(async (v, index) => {
         let distFromPrev = 0;
-        if (index > 0) {
+        if (index === 0) {
+          // Travel from Hospital Base Office to Stop #1
+          const distMeters = calculateDistanceMeters(
+            baseLocation.latitude,
+            baseLocation.longitude,
+            v.latitude,
+            v.longitude
+          );
+          distFromPrev = Number((distMeters / 1000).toFixed(2));
+        } else {
+          // Travel between consecutive signage stops
           const prev = rawVisits[index - 1];
-          const distMeters = calculateDistanceMeters(prev.latitude, prev.longitude, v.latitude, v.longitude);
+          const distMeters = calculateDistanceMeters(
+            prev.latitude,
+            prev.longitude,
+            v.latitude,
+            v.longitude
+          );
           distFromPrev = Number((distMeters / 1000).toFixed(2));
         }
         cumulativeDistanceKm += distFromPrev;
@@ -1526,13 +1777,36 @@ export const DataService = {
       })
     );
 
+    // If round-trip is enabled and there is at least 1 stop, add return leg to base
+    if (isRoundTrip && rawVisits.length > 0) {
+      const lastVisit = rawVisits[rawVisits.length - 1];
+      const returnMeters = calculateDistanceMeters(
+        lastVisit.latitude,
+        lastVisit.longitude,
+        baseLocation.latitude,
+        baseLocation.longitude
+      );
+      cumulativeDistanceKm += Number((returnMeters / 1000).toFixed(2));
+    }
+
     const totalKm = Number(cumulativeDistanceKm.toFixed(2));
+
+    const googleMapsUrl = buildGoogleMapsDirectionsUrl({
+      originLat: baseLocation.latitude,
+      originLng: baseLocation.longitude,
+      originName: baseLocation.name,
+      stops: stops.map(s => ({ lat: s.latitude, lng: s.longitude, label: s.signage_address })),
+      isRoundTrip,
+    });
 
     return {
       month: monthKey,
       total_distance_km: totalKm,
       stops_count: stops.length,
       stops,
+      origin: baseLocation,
+      google_maps_url: googleMapsUrl,
+      is_round_trip: isRoundTrip,
       existing_request: existingRequest,
       past_requests: pastRequests,
     };

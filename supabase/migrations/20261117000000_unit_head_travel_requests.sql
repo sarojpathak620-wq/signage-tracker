@@ -17,12 +17,20 @@ CREATE TABLE IF NOT EXISTS public.travel_requests (
     month DATE NOT NULL,
     total_distance_km NUMERIC(10, 2) NOT NULL DEFAULT 0,
     status TEXT NOT NULL CHECK (status IN ('pending', 'approved', 'rejected')) DEFAULT 'pending',
+    start_location TEXT DEFAULT 'Hospital Base Office',
+    is_round_trip BOOLEAN DEFAULT false,
+    travel_purpose TEXT,
     submitted_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     reviewed_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
     reviewed_at TIMESTAMPTZ,
     review_comment TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Ensure columns exist if table was already created
+ALTER TABLE public.travel_requests ADD COLUMN IF NOT EXISTS start_location TEXT DEFAULT 'Hospital Base Office';
+ALTER TABLE public.travel_requests ADD COLUMN IF NOT EXISTS is_round_trip BOOLEAN DEFAULT false;
+ALTER TABLE public.travel_requests ADD COLUMN IF NOT EXISTS travel_purpose TEXT;
 
 -- 3. CREATE TABLE: travel_request_stops
 CREATE TABLE IF NOT EXISTS public.travel_request_stops (
@@ -71,10 +79,12 @@ CREATE POLICY "travel_requests_update" ON public.travel_requests
     USING (
         public.get_auth_role() = 'admin'
         OR (public.get_auth_role() = 'supervisor' AND unit_id = public.get_auth_unit_id())
+        OR (public.get_auth_role() = 'bd_executive' AND bd_executive_id = auth.uid())
     )
     WITH CHECK (
         public.get_auth_role() = 'admin'
         OR (public.get_auth_role() = 'supervisor' AND unit_id = public.get_auth_unit_id())
+        OR (public.get_auth_role() = 'bd_executive' AND bd_executive_id = auth.uid())
     );
 
 DROP POLICY IF EXISTS "travel_requests_delete_admin" ON public.travel_requests;
@@ -113,7 +123,14 @@ CREATE POLICY "travel_request_stops_insert" ON public.travel_request_stops
 DROP POLICY IF EXISTS "travel_request_stops_delete" ON public.travel_request_stops;
 CREATE POLICY "travel_request_stops_delete" ON public.travel_request_stops
     FOR DELETE TO authenticated
-    USING (public.get_auth_role() = 'admin');
+    USING (
+        public.get_auth_role() = 'admin'
+        OR EXISTS (
+            SELECT 1 FROM public.travel_requests tr
+            WHERE tr.id = travel_request_stops.travel_request_id
+            AND tr.bd_executive_id = auth.uid()
+        )
+    );
 
 -- 8. UPDATE SIGNAGES SELECT POLICY: SCOPE SUPERVISOR TO ASSIGNED UNIT ONLY
 DROP POLICY IF EXISTS "signages_select" ON public.signages;

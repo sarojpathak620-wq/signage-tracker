@@ -7,12 +7,13 @@ import {
   MapPin, Search, ShieldCheck, ChevronRight, RefreshCw, 
   AlertOctagon, HelpCircle, Eye, X, ImageOff, Compass, ShieldAlert,
   Trash2, Lock, Sparkles, Navigation, Route, Calendar, CheckCircle, 
-  XCircle, Send, ArrowRight
+  XCircle, Send, ArrowRight, Building2, Edit3, ExternalLink, RotateCcw
 } from 'lucide-react';
 import { Signage, SignageStatus, SignageCondition, SignageUpdate, MonthlyTravelSummary, ExecutiveVisitStop, TravelRequest } from '@/lib/types';
 import { DataService, getCurrentMonthKey } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { CameraInspectionModal } from '@/components/signage/CameraInspectionModal';
+import { TravelRouteMap } from '@/components/map/TravelRouteMap';
 
 export default function BDExecutivePortal() {
   const { user } = useAuth();
@@ -34,6 +35,14 @@ export default function BDExecutivePortal() {
   const [submittingTravel, setSubmittingTravel] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
+
+  // Route options & claim state
+  const [isRoundTrip, setIsRoundTrip] = useState(false);
+  const [startLocationType, setStartLocationType] = useState<'hospital' | 'custom'>('hospital');
+  const [customStartLocation, setCustomStartLocation] = useState('');
+  const [claimedKmInput, setClaimedKmInput] = useState<string>('');
+  const [travelPurposeNotes, setTravelPurposeNotes] = useState('');
+  const [isResubmitting, setIsResubmitting] = useState(false);
 
   // Full-screen image lightbox state
   const [lightboxData, setLightboxData] = useState<{
@@ -92,17 +101,39 @@ export default function BDExecutivePortal() {
     }
   };
 
-  const loadTravelSummary = async () => {
+  const loadTravelSummary = async (roundTripOverride?: boolean) => {
     if (!user?.id) return;
     setTravelLoading(true);
     try {
-      const summary = await DataService.getMonthlyTravelSummary(user.id, currentMonthKey);
+      const useRoundTrip = roundTripOverride !== undefined ? roundTripOverride : isRoundTrip;
+      const summary = await DataService.getMonthlyTravelSummary(user.id, currentMonthKey, {
+        isRoundTrip: useRoundTrip,
+      });
       setTravelSummary(summary);
+
+      if (summary.existing_request) {
+        setIsRoundTrip(Boolean(summary.existing_request.is_round_trip));
+        setClaimedKmInput(String(summary.existing_request.total_distance_km));
+        if (summary.existing_request.travel_purpose) {
+          setTravelPurposeNotes(summary.existing_request.travel_purpose);
+        }
+        if (summary.existing_request.start_location && summary.existing_request.start_location !== 'Hospital Base Office') {
+          setStartLocationType('custom');
+          setCustomStartLocation(summary.existing_request.start_location);
+        }
+      } else {
+        setClaimedKmInput(String(summary.total_distance_km));
+      }
     } catch (e) {
       console.error('Failed to load travel summary:', e);
     } finally {
       setTravelLoading(false);
     }
+  };
+
+  const handleToggleRoundTrip = (newVal: boolean) => {
+    setIsRoundTrip(newVal);
+    loadTravelSummary(newVal);
   };
 
   useEffect(() => {
@@ -123,6 +154,14 @@ export default function BDExecutivePortal() {
       setSubmitError('You must be assigned to a hospital unit before submitting travel claims. Please contact Admin.');
       return;
     }
+    const finalDistance = claimedKmInput && !isNaN(Number(claimedKmInput)) && Number(claimedKmInput) > 0
+      ? Number(Number(claimedKmInput).toFixed(1))
+      : travelSummary.total_distance_km;
+
+    const startLoc = startLocationType === 'custom' && customStartLocation.trim()
+      ? customStartLocation.trim()
+      : travelSummary.origin?.name || 'Hospital Base Office';
+
     setSubmittingTravel(true);
     setSubmitError(null);
     try {
@@ -130,7 +169,10 @@ export default function BDExecutivePortal() {
         bd_executive_id: user.id,
         unit_id: user.unit_id,
         month: currentMonthKey,
-        total_distance_km: travelSummary.total_distance_km,
+        total_distance_km: finalDistance,
+        start_location: startLoc,
+        is_round_trip: isRoundTrip,
+        travel_purpose: travelPurposeNotes.trim() || null,
         stops: travelSummary.stops.map(s => ({
           signage_id: s.signage_id,
           signage_update_id: s.signage_update_id || null,
@@ -141,8 +183,9 @@ export default function BDExecutivePortal() {
         })),
       });
 
-      setSubmitSuccess(`Your travel claim for ${currentMonthName} (${travelSummary.total_distance_km} KM) has been submitted! Notification sent to Unit Head.`);
+      setSubmitSuccess(`Your travel claim for ${currentMonthName} (${finalDistance} KM) has been submitted! Notification sent to Unit Head.`);
       setSubmitModalOpen(false);
+      setIsResubmitting(false);
       await loadTravelSummary();
     } catch (err: any) {
       console.error('Submit travel request error:', err);
@@ -671,8 +714,8 @@ export default function BDExecutivePortal() {
             </div>
           </div>
 
-          {/* Travel Request Status & Action Card */}
-          {travelSummary?.existing_request ? (
+          {/* Travel Request Status Card */}
+          {travelSummary?.existing_request && (!isResubmitting || travelSummary.existing_request.status !== 'rejected') && (
             <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs transition-all ${
               travelSummary.existing_request.status === 'approved'
                 ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
@@ -719,7 +762,7 @@ export default function BDExecutivePortal() {
                     )}
                   </p>
 
-                  {/* Unit Head comment (Prominent especially on rejection) */}
+                  {/* Unit Head comment */}
                   {travelSummary.existing_request.review_comment && (
                     <div className="mt-3 p-3 rounded-2xl bg-white border border-slate-200 shadow-2xs">
                       <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-0.5">
@@ -731,28 +774,169 @@ export default function BDExecutivePortal() {
                     </div>
                   )}
 
+                  {/* Re-submit action button when rejected */}
+                  {travelSummary.existing_request.status === 'rejected' && (
+                    <div className="mt-3.5 pt-3 border-t border-rose-200/60 flex items-center justify-between gap-3">
+                      <span className="text-[11px] text-rose-800">
+                        Need to adjust mileage or route?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsResubmitting(true);
+                          setSubmitError(null);
+                        }}
+                        className="inline-flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer transition-all active:scale-95"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>Update &amp; Resubmit Claim</span>
+                      </button>
+                    </div>
+                  )}
+
                   <div className="mt-2.5 text-[10px] text-slate-500 font-medium">
                     &bull; One travel reimbursement request is permitted per calendar month.
                   </div>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-3.5">
+          )}
+
+          {/* Travel Request Configuration & Submission Card (Shown if new OR resubmitting after rejection) */}
+          {(!travelSummary?.existing_request || (travelSummary.existing_request.status === 'rejected' && isResubmitting)) && (
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-xs space-y-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-1">
                     <Send className="w-3 h-3" />
-                    <span>Monthly Reimbursement Claim</span>
+                    <span>{travelSummary?.existing_request ? 'Update Rejected Claim' : 'Monthly Reimbursement Claim'}</span>
                   </div>
-                  <h4 className="text-sm font-bold text-slate-900">Submit Travel Request</h4>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {travelSummary?.existing_request ? 'Update & Resubmit Travel Claim' : 'Submit Travel Request'}
+                  </h4>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    {travelSummary?.stops_count || 0} inspection stops • {travelSummary?.total_distance_km !== undefined ? travelSummary.total_distance_km.toFixed(1) : '0.0'} KM calculated
+                    {travelSummary?.stops_count || 0} stops visited • Origin: {travelSummary?.origin?.name || 'Hospital Base Office'}
                   </p>
                 </div>
                 <span className="font-mono text-base font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-xl shrink-0">
-                  {travelSummary?.total_distance_km !== undefined ? travelSummary.total_distance_km.toFixed(1) : '0.0'} KM
+                  {claimedKmInput || (travelSummary?.total_distance_km !== undefined ? travelSummary.total_distance_km.toFixed(1) : '0.0')} KM
                 </span>
+              </div>
+
+              {/* Starting Point & Round Trip Controls */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
+                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                  <Building2 className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Trip Origin &amp; Route Configuration</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <label className={`p-2.5 rounded-xl border flex items-center space-x-2 cursor-pointer transition-all ${
+                    startLocationType === 'hospital'
+                      ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="startLocationType"
+                      checked={startLocationType === 'hospital'}
+                      onChange={() => setStartLocationType('hospital')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="truncate">🏥 {travelSummary?.origin?.name || 'Hospital Base Office'}</span>
+                  </label>
+
+                  <label className={`p-2.5 rounded-xl border flex items-center space-x-2 cursor-pointer transition-all ${
+                    startLocationType === 'custom'
+                      ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold'
+                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
+                  }`}>
+                    <input
+                      type="radio"
+                      name="startLocationType"
+                      checked={startLocationType === 'custom'}
+                      onChange={() => setStartLocationType('custom')}
+                      className="text-blue-600 focus:ring-blue-500"
+                    />
+                    <span>📍 Screening Camp / Custom Start</span>
+                  </label>
+                </div>
+
+                {startLocationType === 'custom' && (
+                  <div className="animate-in fade-in duration-150">
+                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                      Screening Camp / Starting Location Name
+                    </label>
+                    <input
+                      type="text"
+                      value={customStartLocation}
+                      onChange={(e) => setCustomStartLocation(e.target.value)}
+                      placeholder="e.g. Screening Camp - Chomu / Outstation Check-in"
+                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Round Trip Checkbox */}
+                <label className="flex items-center space-x-2.5 text-xs text-slate-700 font-medium cursor-pointer pt-1">
+                  <input
+                    type="checkbox"
+                    checked={isRoundTrip}
+                    onChange={(e) => handleToggleRoundTrip(e.target.checked)}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
+                  />
+                  <span>Include Return Journey (Round Trip back to Office / Starting Point)</span>
+                </label>
+              </div>
+
+              {/* Distance Claim & Road Odometer Adjustment */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                    GPS Straight-Line Baseline
+                  </div>
+                  <div className="text-sm font-mono font-bold text-slate-700 mt-0.5">
+                    {travelSummary?.total_distance_km !== undefined ? travelSummary.total_distance_km.toFixed(1) : '0.0'} KM
+                  </div>
+                  <div className="text-[10px] text-slate-400 mt-0.5">
+                    Calculated from Office to Stop #1 + route
+                  </div>
+                </div>
+
+                <div className="p-3 rounded-2xl bg-blue-50/60 border border-blue-200/80">
+                  <label className="block text-[10px] text-blue-800 font-bold uppercase tracking-wider mb-1">
+                    Claimed Road Mileage (KM)
+                  </label>
+                  <div className="flex items-center space-x-1.5">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      value={claimedKmInput}
+                      onChange={(e) => setClaimedKmInput(e.target.value)}
+                      placeholder={String(travelSummary?.total_distance_km || 0)}
+                      className="w-full px-2.5 py-1 text-xs font-mono font-bold bg-white rounded-lg border border-blue-300 text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <span className="text-xs font-bold text-blue-700">KM</span>
+                  </div>
+                  <div className="text-[10px] text-blue-600 mt-1">
+                    Editable for actual vehicle odometer road mileage
+                  </div>
+                </div>
+              </div>
+
+              {/* Purpose / Screening Camp Notes */}
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Travel Purpose / Screening Camp Notes (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={travelPurposeNotes}
+                  onChange={(e) => setTravelPurposeNotes(e.target.value)}
+                  placeholder="e.g. Village eye screening camp at Chomu + signage verification"
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                />
               </div>
 
               {travelSummary?.stops_count === 0 ? (
@@ -775,37 +959,64 @@ export default function BDExecutivePortal() {
                   </Link>
                 </div>
               ) : (
-                <p className="text-[11px] text-slate-500 leading-relaxed">
-                  Submitting will lock your monthly mileage claim and notify your Unit Head via email with full route details for review &amp; reimbursement approval.
-                </p>
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                  {travelSummary?.google_maps_url && (
+                    <a
+                      href={travelSummary.google_maps_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center space-x-1.5 px-3.5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors border border-slate-200 cursor-pointer"
+                    >
+                      <Compass className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Verify on Google Maps</span>
+                      <ExternalLink className="w-3 h-3 text-slate-400" />
+                    </a>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSubmitError(null);
+                      setSubmitModalOpen(true);
+                    }}
+                    disabled={travelSummary?.stops_count === 0}
+                    className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer ${
+                      travelSummary?.stops_count === 0
+                        ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                        : 'bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-md shadow-blue-500/25'
+                    }`}
+                  >
+                    <Send className="w-4 h-4" />
+                    <span>
+                      {travelSummary?.stops_count === 0
+                        ? 'Need at least 1 stop to submit'
+                        : `Submit Claim (${claimedKmInput || travelSummary?.total_distance_km} KM)`}
+                    </span>
+                  </button>
+                </div>
               )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setSubmitError(null);
-                  setSubmitModalOpen(true);
-                }}
-                disabled={travelSummary?.stops_count === 0}
-                className={`w-full min-h-[48px] py-3 px-4 rounded-2xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                  travelSummary?.stops_count === 0
-                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-md shadow-blue-500/25'
-                }`}
-              >
-                <Send className="w-4 h-4" />
-                <span>
-                  {travelSummary?.stops_count === 0
-                    ? 'Submit Travel Request (0 Stops - Need Visits)'
-                    : `Submit Travel Request (${travelSummary?.total_distance_km} KM)`}
-                </span>
-              </button>
-              
               <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1">
-                <span>&bull; Only 1 request allowed per calendar month</span>
+                <span>&bull; One travel reimbursement request per calendar month</span>
                 <span>Unit: {user?.unit?.name || 'Assigned Unit'}</span>
               </div>
             </div>
+          )}
+
+          {/* Interactive Travel Route Map Visual */}
+          {travelSummary && travelSummary.stops.length > 0 && (
+            <TravelRouteMap
+              origin={travelSummary.origin || { lat: 26.9678, lng: 75.7725, address: user?.unit?.name || 'Hospital Base Office' }}
+              stops={travelSummary.stops}
+              isRoundTrip={isRoundTrip}
+              totalDistanceKm={
+                claimedKmInput && !isNaN(Number(claimedKmInput)) && Number(claimedKmInput) > 0
+                  ? Number(claimedKmInput)
+                  : travelSummary.total_distance_km
+              }
+              googleMapsUrl={travelSummary.google_maps_url}
+              unitName={user?.unit?.name || 'Hospital Base Office'}
+            />
           )}
 
           {/* Consecutive Visits List */}
@@ -1077,13 +1288,41 @@ export default function BDExecutivePortal() {
                 <span className="font-bold text-slate-800">{currentMonthName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Total Distance:</span>
-                <span className="font-mono font-bold text-blue-600 text-sm">{travelSummary.total_distance_km} KM</span>
+                <span className="text-slate-500">Origin:</span>
+                <span className="font-semibold text-slate-800 truncate max-w-[180px]">
+                  {startLocationType === 'custom' && customStartLocation.trim()
+                    ? customStartLocation.trim()
+                    : travelSummary.origin?.name || 'Hospital Base Office'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Round Trip:</span>
+                <span className="font-semibold text-slate-800">
+                  {isRoundTrip ? 'Yes (Returned to Office)' : 'One-way'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">GPS Baseline:</span>
+                <span className="font-mono text-slate-600">{travelSummary.total_distance_km} KM</span>
+              </div>
+              <div className="flex justify-between border-t border-slate-200/60 pt-1.5">
+                <span className="text-slate-700 font-bold">Claimed Mileage:</span>
+                <span className="font-mono font-black text-blue-600 text-sm">
+                  {claimedKmInput || travelSummary.total_distance_km} KM
+                </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">Visited Stops:</span>
                 <span className="font-bold text-slate-800">{travelSummary.stops_count} locations</span>
               </div>
+              {travelPurposeNotes.trim() && (
+                <div className="border-t border-slate-200/60 pt-1.5">
+                  <span className="text-slate-500 block mb-0.5">Purpose:</span>
+                  <span className="font-medium text-slate-700 italic block line-clamp-2">
+                    &ldquo;{travelPurposeNotes.trim()}&rdquo;
+                  </span>
+                </div>
+              )}
             </div>
 
             <p className="text-[11px] text-slate-500 leading-relaxed text-center">
