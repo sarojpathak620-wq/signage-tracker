@@ -2,16 +2,16 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { Signage, Unit, Area, SignageCondition, SignageStatus, TravelRequest, TravelRequestStatus } from '@/lib/types';
+import { DataService } from '@/lib/data-service';
+import { useAuth } from '@/contexts/auth-context';
 import { 
   Building2, MapPin, CheckCircle2, Clock, AlertTriangle, 
   Map, FileBarChart2, Search, Filter, Shield, 
   Sparkles, RefreshCw, Phone, ExternalLink, Camera, 
   AlertOctagon, HelpCircle, Send, PlayCircle, Eye, X, 
-  Download, ArrowUpRight 
+  Download, ArrowUpRight, Navigation, CheckCircle, XCircle, MessageSquare
 } from 'lucide-react';
-import { Signage, Unit, Area, SignageCondition, SignageStatus } from '@/lib/types';
-import { DataService } from '@/lib/data-service';
-import { useAuth } from '@/contexts/auth-context';
 
 export default function SupervisorDashboard() {
   const { user } = useAuth();
@@ -19,6 +19,28 @@ export default function SupervisorDashboard() {
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitSummaries, setUnitSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isUnitHead = user?.role === 'supervisor';
+  const assignedUnitId = isUnitHead ? user?.unit_id : null;
+
+  // Tabs: 'signages' or 'travel'
+  const [activeTab, setActiveTab] = useState<'signages' | 'travel'>('signages');
+
+  // Travel Requests state
+  const [travelRequests, setTravelRequests] = useState<TravelRequest[]>([]);
+  const [reviewModal, setReviewModal] = useState<{
+    open: boolean;
+    request: TravelRequest | null;
+    action: 'approved' | 'rejected';
+    comment: string;
+    submitting: boolean;
+  }>({
+    open: false,
+    request: null,
+    action: 'approved',
+    comment: '',
+    submitting: false,
+  });
 
   // Filters
   const [selectedUnitId, setSelectedUnitId] = useState<string>('all');
@@ -39,16 +61,34 @@ export default function SupervisorDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const [signagesData, unitsData, summariesData] = await Promise.all([
-        DataService.getSignages({ is_active: true }),
+      const [signagesData, unitsData, summariesData, travelData] = await Promise.all([
+        DataService.getSignages({
+          is_active: true,
+          unit_id: assignedUnitId || undefined,
+        }),
         DataService.getUnits(),
         DataService.getUnitStatusSummary(),
+        DataService.getTravelRequests({
+          unit_id: assignedUnitId || undefined,
+        }),
       ]);
+
+      const visibleUnits = assignedUnitId 
+        ? unitsData.filter(u => u.id === assignedUnitId)
+        : unitsData;
+      const visibleSummaries = assignedUnitId
+        ? summariesData.filter(s => s.unit?.id === assignedUnitId)
+        : summariesData;
+
       setSignages(signagesData);
-      setUnits(unitsData);
-      setUnitSummaries(summariesData);
+      setUnits(visibleUnits);
+      setUnitSummaries(visibleSummaries);
+      setTravelRequests(travelData);
+      if (assignedUnitId) {
+        setSelectedUnitId(assignedUnitId);
+      }
     } catch (err) {
-      console.error('Failed to load supervisor data:', err);
+      console.error('Failed to load Unit Head data:', err);
     } finally {
       setLoading(false);
     }
@@ -56,7 +96,7 @@ export default function SupervisorDashboard() {
 
   useEffect(() => {
     loadDashboardData();
-  }, []);
+  }, [assignedUnitId]);
 
   // Run scheduled compliance & reminder job
   const handleRunScheduledJob = async () => {
@@ -100,8 +140,51 @@ export default function SupervisorDashboard() {
   const damagedCount = signages.filter(s => s.latest_update?.condition === 'Damaged').length;
   const missingCount = signages.filter(s => s.latest_update?.condition === 'Missing').length;
 
+  const pendingTravelCount = travelRequests.filter(r => r.status === 'pending').length;
+
+  const handleOpenReview = (request: TravelRequest, action: 'approved' | 'rejected') => {
+    setReviewModal({
+      open: true,
+      request,
+      action,
+      comment: '',
+      submitting: false,
+    });
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewModal.request || !user) return;
+    setReviewModal(prev => ({ ...prev, submitting: true }));
+    try {
+      await DataService.updateTravelRequestStatus({
+        requestId: reviewModal.request.id,
+        status: reviewModal.action,
+        reviewedBy: user.id,
+        reviewComment: reviewModal.comment.trim() || undefined,
+      });
+      setReviewModal({ open: false, request: null, action: 'approved', comment: '', submitting: false });
+      await loadDashboardData();
+    } catch (err: any) {
+      alert(`Error updating travel request: ${err.message || 'Unknown error'}`);
+      setReviewModal(prev => ({ ...prev, submitting: false }));
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pb-28 md:pb-12">
+      {/* Warning if Unit Head has no assigned unit */}
+      {isUnitHead && !assignedUnitId && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start space-x-3 shadow-xs">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <div className="text-sm font-bold">No Hospital Unit Assigned</div>
+            <p className="text-xs text-amber-800 mt-0.5 leading-relaxed">
+              Your Unit Head account is not yet linked to a hospital unit. Unit Heads have view-only access scoped strictly to one unit. Please ask an Administrator to assign your hospital unit in <strong>Admin &gt; User Management</strong>.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Welcome Hero Banner */}
       <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-900 rounded-3xl p-6 sm:p-8 text-white shadow-xl mb-8 relative overflow-hidden">
         <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-500/20 via-transparent to-transparent pointer-events-none" />
@@ -110,13 +193,15 @@ export default function SupervisorDashboard() {
           <div>
             <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold mb-2 border border-blue-400/20">
               <Shield className="w-3.5 h-3.5 text-blue-400" />
-              <span>Supervisor Command Center</span>
+              <span>Unit Head Portal (View &amp; Approve Only)</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-              Hospital Outdoor Signage Monitoring
+              {units.length === 1 ? `${units[0].name} Signage & Travel Monitoring` : 'Hospital Outdoor Signage Monitoring'}
             </h1>
             <p className="mt-1 text-xs sm:text-sm text-slate-300 max-w-2xl">
-              Unit-wise compliance tracking, interactive geospatial map, condition monitoring, and scheduled reminder escalations.
+              {assignedUnitId 
+                ? 'Unit compliance tracking, interactive geospatial map, and monthly travel request approvals scoped strictly to your hospital unit.' 
+                : 'Unit-wise compliance tracking, interactive geospatial map, condition monitoring, and scheduled reminder escalations.'}
             </p>
           </div>
 
@@ -176,6 +261,37 @@ export default function SupervisorDashboard() {
         </div>
       </div>
 
+      {/* Navigation Tabs (Signages vs Travel Requests) */}
+      <div className="flex flex-wrap items-center gap-2.5 mb-6">
+        <button
+          onClick={() => setActiveTab('signages')}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 ${
+            activeTab === 'signages'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          <span>Signage Monitoring ({signages.length})</span>
+        </button>
+        <button
+          onClick={() => setActiveTab('travel')}
+          className={`px-4 py-2.5 rounded-2xl text-xs font-bold transition-all flex items-center space-x-2 relative ${
+            activeTab === 'travel'
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+              : 'bg-white text-slate-700 hover:bg-slate-50 border border-slate-200'
+          }`}
+        >
+          <Navigation className="w-4 h-4" />
+          <span>Travel Requests Approval</span>
+          {pendingTravelCount > 0 && (
+            <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-400 text-slate-900">
+              {pendingTravelCount}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Scheduled Job Notification Banner (if recently triggered) */}
       {jobResult && (
         <div className="mb-8 p-4 rounded-3xl bg-blue-50 border border-blue-200 shadow-xs animate-in fade-in duration-300">
@@ -189,7 +305,7 @@ export default function SupervisorDashboard() {
                   Scheduled Job Executed Successfully
                 </h4>
                 <p className="text-xs text-blue-700 mt-0.5">
-                  Sent <strong>{jobResult.remindersSent} reminders</strong> to BD Executives and <strong>{jobResult.escalationsSent} escalations</strong> to Supervisors with unit and area names.
+                  Sent <strong>{jobResult.remindersSent} reminders</strong> to BD Executives and <strong>{jobResult.escalationsSent} escalations</strong> to Unit Heads with unit and area names.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
                   {jobResult.details.map((item, idx) => (
@@ -210,7 +326,10 @@ export default function SupervisorDashboard() {
         </div>
       )}
 
-      {/* 1. UNIT-WISE STATUS SECTION */}
+      {/* Tab Content: Signage Monitoring */}
+      {activeTab === 'signages' && (
+        <>
+          {/* 1. UNIT-WISE STATUS SECTION */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -325,18 +444,24 @@ export default function SupervisorDashboard() {
           {/* Unit selector */}
           <div className="flex items-center space-x-2 w-full sm:w-auto">
             <span className="text-xs text-slate-500 font-medium whitespace-nowrap">Unit:</span>
-            <select
-              value={selectedUnitId}
-              onChange={(e) => setSelectedUnitId(e.target.value)}
-              className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 cursor-pointer w-full sm:w-auto"
-            >
-              <option value="all">All Hospital Units</option>
-              {units.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.name}
-                </option>
-              ))}
-            </select>
+            {assignedUnitId ? (
+              <span className="px-3 py-2 text-xs font-bold rounded-xl bg-blue-50 text-blue-800 border border-blue-200">
+                {units.find(u => u.id === assignedUnitId)?.name || 'Assigned Unit'} (Scoped)
+              </span>
+            ) : (
+              <select
+                value={selectedUnitId}
+                onChange={(e) => setSelectedUnitId(e.target.value)}
+                className="px-3 py-2 text-xs font-medium rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 cursor-pointer w-full sm:w-auto"
+              >
+                <option value="all">All Hospital Units</option>
+                {units.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         </div>
 
@@ -605,6 +730,181 @@ export default function SupervisorDashboard() {
           </div>
         )}
       </div>
+    </>
+  )}
+
+      {/* Tab Content: Travel Requests Approval */}
+      {activeTab === 'travel' && (
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-xs overflow-hidden">
+          <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold uppercase tracking-wider mb-1">
+                <Navigation className="w-3 h-3" />
+                <span>Inspection Mileage Verification</span>
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900">
+                BD Executive Travel Requests ({travelRequests.length})
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Review submitted travel logs, GPS routes, and approve or reject travel reimbursement requests for your assigned hospital unit.
+              </p>
+            </div>
+            <button
+              onClick={loadDashboardData}
+              className="self-start sm:self-auto text-xs text-blue-600 hover:text-blue-700 font-semibold flex items-center space-x-1"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>Refresh Requests</span>
+            </button>
+          </div>
+
+          {travelRequests.length === 0 ? (
+            <div className="py-16 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-slate-50 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <Navigation className="w-6 h-6" />
+              </div>
+              <h4 className="text-sm font-bold text-slate-800">No Travel Requests Found</h4>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+                When BD executives submit monthly signage inspection mileage for this unit, their requests will appear here for your review and approval.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-50/75 border-b border-slate-200 text-slate-500 font-bold uppercase tracking-wider text-[10px]">
+                    <th className="py-3 px-4">BD Executive</th>
+                    <th className="py-3 px-4">Hospital Unit</th>
+                    <th className="py-3 px-4">Month</th>
+                    <th className="py-3 px-4">Total Distance</th>
+                    <th className="py-3 px-4">Status</th>
+                    <th className="py-3 px-4">Review Details</th>
+                    <th className="py-3 px-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {travelRequests.map((req) => {
+                    const isPending = req.status === 'pending';
+                    const isApproved = req.status === 'approved';
+                    const isRejected = req.status === 'rejected';
+
+                    return (
+                      <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-900">
+                            {req.bd_executive?.full_name || 'BD Executive'}
+                          </div>
+                          <div className="text-[11px] text-slate-500">
+                            {req.bd_executive?.email}
+                          </div>
+                          {req.bd_executive?.phone && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {req.bd_executive.phone}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="font-semibold text-slate-800">
+                            {req.unit?.name || 'Unit'}
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            {req.unit?.city}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <span className="font-medium text-slate-800">
+                            {req.month}
+                          </span>
+                          <div className="text-[10px] text-slate-400">
+                            Submitted {new Date(req.submitted_at).toLocaleDateString()}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          <div className="font-mono font-bold text-slate-900 text-sm">
+                            {Number(req.total_distance_km).toFixed(1)} km
+                          </div>
+                          {req.stops && req.stops.length > 0 && (
+                            <div className="text-[10px] text-slate-400">
+                              {req.stops.length} signage stops visited
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 whitespace-nowrap">
+                          {isPending && (
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                              <Clock className="w-3 h-3" />
+                              <span>Pending Review</span>
+                            </span>
+                          )}
+                          {isApproved && (
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              <CheckCircle className="w-3 h-3" />
+                              <span>Approved</span>
+                            </span>
+                          )}
+                          {isRejected && (
+                            <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                              <XCircle className="w-3 h-3" />
+                              <span>Rejected</span>
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 max-w-xs">
+                          {req.reviewed_by ? (
+                            <div>
+                              <div className="text-[11px] font-semibold text-slate-800">
+                                By {req.reviewer?.full_name || 'Unit Head'}
+                              </div>
+                              {req.reviewed_at && (
+                                <div className="text-[10px] text-slate-400">
+                                  {new Date(req.reviewed_at).toLocaleDateString()}
+                                </div>
+                              )}
+                              {req.review_comment && (
+                                <p className="text-[11px] text-slate-600 italic mt-0.5 truncate">
+                                  "{req.review_comment}"
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 text-[11px]">Awaiting decision</span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              onClick={() => handleOpenReview(req, 'approved')}
+                              className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all flex items-center space-x-1 ${
+                                isApproved 
+                                  ? 'bg-slate-100 text-slate-500 hover:bg-slate-200' 
+                                  : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-xs'
+                              }`}
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenReview(req, 'rejected')}
+                              className={`px-2.5 py-1.5 rounded-xl font-bold text-[11px] transition-all flex items-center space-x-1 ${
+                                isRejected
+                                  ? 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                                  : 'bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200'
+                              }`}
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Inspection Details Modal */}
       {inspectingSignage && (
@@ -719,6 +1019,96 @@ export default function SupervisorDashboard() {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Travel Request Review Modal */}
+      {reviewModal.open && reviewModal.request && (
+        <div 
+          className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => !reviewModal.submitting && setReviewModal({ open: false, request: null, action: 'approved', comment: '', submitting: false })}
+        >
+          <div 
+            className="bg-white w-full max-w-md rounded-3xl shadow-2xl border border-slate-100 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`p-5 ${reviewModal.action === 'approved' ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'} flex items-center justify-between`}>
+              <div className="flex items-center space-x-2.5">
+                {reviewModal.action === 'approved' ? (
+                  <CheckCircle className="w-5 h-5 text-emerald-100" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-rose-100" />
+                )}
+                <div>
+                  <h3 className="font-bold text-sm">
+                    {reviewModal.action === 'approved' ? 'Approve Travel Request' : 'Reject Travel Request'}
+                  </h3>
+                  <p className="text-[11px] text-white/80">
+                    Unit Head Approval • {reviewModal.request.unit?.name || 'Unit'}
+                  </p>
+                </div>
+              </div>
+              <button
+                disabled={reviewModal.submitting}
+                onClick={() => setReviewModal({ open: false, request: null, action: 'approved', comment: '', submitting: false })}
+                className="text-white/80 hover:text-white p-1"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">BD Executive:</span>
+                  <span className="font-bold text-slate-800">{reviewModal.request.bd_executive?.full_name || 'BD Executive'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Month:</span>
+                  <span className="font-bold text-slate-800">{reviewModal.request.month}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Total Distance:</span>
+                  <span className="font-mono font-bold text-blue-600">{Number(reviewModal.request.total_distance_km).toFixed(1)} km</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  Review Comment / Remarks (Optional)
+                </label>
+                <textarea
+                  value={reviewModal.comment}
+                  onChange={(e) => setReviewModal(prev => ({ ...prev, comment: e.target.value }))}
+                  placeholder={reviewModal.action === 'approved' ? 'e.g. Verified inspection stops against registered GPS coordinates. Approved.' : 'e.g. Incomplete route logs. Please check and resubmit.'}
+                  rows={3}
+                  className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
+                />
+              </div>
+
+              <div className="flex items-center justify-end space-x-2 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  disabled={reviewModal.submitting}
+                  onClick={() => setReviewModal({ open: false, request: null, action: 'approved', comment: '', submitting: false })}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={reviewModal.submitting}
+                  onClick={handleSubmitReview}
+                  className={`px-5 py-2 rounded-xl text-xs font-bold text-white transition-all shadow-sm ${
+                    reviewModal.action === 'approved'
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-rose-600 hover:bg-rose-700'
+                  }`}
+                >
+                  {reviewModal.submitting ? 'Saving Decision...' : `Confirm ${reviewModal.action === 'approved' ? 'Approval' : 'Rejection'}`}
+                </button>
+              </div>
             </div>
           </div>
         </div>

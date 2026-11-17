@@ -30,7 +30,7 @@ export function BottomNav() {
         ];
       case 'supervisor':
         return [
-          { label: 'Dashboard', href: '/supervisor', icon: LayoutDashboard },
+          { label: 'Unit Portal', href: '/supervisor', icon: LayoutDashboard },
           { label: 'Map View', href: '/supervisor/map', icon: Map },
           { label: 'Reports', href: '/supervisor/reports', icon: FileBarChart2 },
         ];

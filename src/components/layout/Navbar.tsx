@@ -57,7 +57,7 @@ export function Navbar() {
   const getRoleBadgeLabel = () => {
     switch (role) {
       case 'admin': return 'Admin';
-      case 'supervisor': return 'Supervisor';
+      case 'supervisor': return 'Unit Head (View & Approve Only)';
       case 'bd_executive': return 'BD Executive';
       default: return '';
     }

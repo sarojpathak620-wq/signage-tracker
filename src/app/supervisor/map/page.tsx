@@ -8,9 +8,11 @@ import {
 } from 'lucide-react';
 import { Signage, Unit } from '@/lib/types';
 import { DataService } from '@/lib/data-service';
+import { useAuth } from '@/contexts/auth-context';
 import { SignageMap } from '@/components/map/SignageMap';
 
 export default function SupervisorMapPage() {
+  const { user } = useAuth();
   const [signages, setSignages] = useState<Signage[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -20,14 +22,28 @@ export default function SupervisorMapPage() {
   const [selectedCondition, setSelectedCondition] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
 
+  const isUnitHead = user?.role === 'supervisor';
+  const assignedUnitId = isUnitHead ? user?.unit_id : null;
+
   const loadData = async () => {
     try {
       const [signagesData, unitsData] = await Promise.all([
-        DataService.getSignages({ is_active: true }),
+        DataService.getSignages({
+          is_active: true,
+          unit_id: assignedUnitId || undefined,
+        }),
         DataService.getUnits(),
       ]);
+
+      const visibleUnits = assignedUnitId 
+        ? unitsData.filter(u => u.id === assignedUnitId)
+        : unitsData;
+
       setSignages(signagesData);
-      setUnits(unitsData);
+      setUnits(visibleUnits);
+      if (assignedUnitId) {
+        setSelectedUnitId(assignedUnitId);
+      }
     } catch (e) {
       console.error('Failed to load map data:', e);
     } finally {
@@ -37,7 +53,7 @@ export default function SupervisorMapPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [assignedUnitId]);
 
   const filteredSignages = signages.filter((s) => {
     const matchesUnit = selectedUnitId === 'all' || s.unit_id === selectedUnitId;
@@ -56,7 +72,7 @@ export default function SupervisorMapPage() {
           className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Supervisor Dashboard</span>
+          <span>Back to Unit Head Portal</span>
         </Link>
       </div>
 
@@ -65,13 +81,15 @@ export default function SupervisorMapPage() {
         <div>
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-400/20 mb-2">
             <MapPin className="w-3.5 h-3.5 text-blue-400" />
-            <span>Geospatial Signage Map</span>
+            <span>Unit Head Geospatial Signage Map</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
             Hospital Unit Signage Locations & Status
           </h1>
           <p className="text-xs text-slate-300 mt-0.5">
-            Real-time interactive pin map filtered by hospital unit, condition, and monthly compliance.
+            {assignedUnitId 
+              ? 'Real-time interactive pin map scoped strictly to your assigned hospital unit.' 
+              : 'Real-time interactive pin map filtered by hospital unit, condition, and monthly compliance.'}
           </p>
         </div>
 
@@ -89,18 +107,24 @@ export default function SupervisorMapPage() {
         {/* Unit Selector */}
         <div className="flex items-center space-x-2">
           <span className="text-xs font-bold text-slate-500">Unit:</span>
-          <select
-            value={selectedUnitId}
-            onChange={(e) => setSelectedUnitId(e.target.value)}
-            className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 cursor-pointer"
-          >
-            <option value="all">All Hospital Units</option>
-            {units.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.name}
-              </option>
-            ))}
-          </select>
+          {assignedUnitId ? (
+            <span className="px-3 py-1.5 text-xs font-bold rounded-xl bg-blue-50 text-blue-800 border border-blue-200">
+              {units.find(u => u.id === assignedUnitId)?.name || 'Assigned Unit'} (Scoped)
+            </span>
+          ) : (
+            <select
+              value={selectedUnitId}
+              onChange={(e) => setSelectedUnitId(e.target.value)}
+              className="px-3 py-1.5 text-xs font-semibold rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 cursor-pointer"
+            >
+              <option value="all">All Hospital Units</option>
+              {units.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Condition Filter */}

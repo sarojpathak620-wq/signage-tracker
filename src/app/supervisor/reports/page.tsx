@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import { Signage, Unit } from '@/lib/types';
 import { DataService } from '@/lib/data-service';
+import { useAuth } from '@/contexts/auth-context';
 
 export default function SupervisorReportsPage() {
+  const { user } = useAuth();
   const [signages, setSignages] = useState<Signage[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
   const [unitSummaries, setUnitSummaries] = useState<any[]>([]);
@@ -19,6 +21,9 @@ export default function SupervisorReportsPage() {
   const [currentMonthName, setCurrentMonthName] = useState('Current Month');
   const [generatedDateStr, setGeneratedDateStr] = useState('');
 
+  const isUnitHead = user?.role === 'supervisor';
+  const assignedUnitId = isUnitHead ? user?.unit_id : null;
+
   useEffect(() => {
     setCurrentMonthName(new Date().toLocaleString('default', { month: 'long', year: 'numeric' }));
     setGeneratedDateStr(new Date().toLocaleDateString());
@@ -26,13 +31,24 @@ export default function SupervisorReportsPage() {
     async function load() {
       try {
         const [signagesData, unitsData, summariesData] = await Promise.all([
-          DataService.getSignages({ is_active: true }),
+          DataService.getSignages({
+            is_active: true,
+            unit_id: assignedUnitId || undefined,
+          }),
           DataService.getUnits(),
           DataService.getUnitStatusSummary(),
         ]);
+
+        const visibleUnits = assignedUnitId 
+          ? unitsData.filter(u => u.id === assignedUnitId)
+          : unitsData;
+        const visibleSummaries = assignedUnitId
+          ? summariesData.filter(s => s.unit?.id === assignedUnitId)
+          : summariesData;
+
         setSignages(signagesData);
-        setUnits(unitsData);
-        setUnitSummaries(summariesData);
+        setUnits(visibleUnits);
+        setUnitSummaries(visibleSummaries);
       } catch (e) {
         console.error('Failed to load reports data:', e);
       } finally {
@@ -40,13 +56,13 @@ export default function SupervisorReportsPage() {
       }
     }
     load();
-  }, []);
+  }, [assignedUnitId]);
 
   // CSV Download Handler
   const handleDownloadCSV = async () => {
     setDownloading(true);
     try {
-      const csvContent = await DataService.exportMonthlyReportCSV();
+      const csvContent = await DataService.exportMonthlyReportCSV(assignedUnitId || undefined);
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -77,7 +93,7 @@ export default function SupervisorReportsPage() {
           className="inline-flex items-center space-x-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Supervisor Dashboard</span>
+          <span>Back to Unit Head Portal</span>
         </Link>
       </div>
 
@@ -86,7 +102,7 @@ export default function SupervisorReportsPage() {
         <div>
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/20 text-blue-300 text-xs font-semibold border border-blue-400/20 mb-2 print:hidden">
             <FileBarChart2 className="w-3.5 h-3.5 text-blue-400" />
-            <span>Executive Monthly Report</span>
+            <span>Unit Head Executive Monthly Report</span>
           </div>
           <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white print:text-slate-900">
             Outdoor Signage Compliance Report

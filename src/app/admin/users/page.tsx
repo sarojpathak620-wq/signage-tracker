@@ -120,7 +120,7 @@ export default function AdminUsersPage() {
           full_name: fullName.trim(),
           role,
           phone: phone.trim() || null,
-          unit_id: role === 'supervisor' ? null : (unitId || null),
+          unit_id: unitId || null,
         });
         setFeedback({ type: 'success', message: `User "${fullName}" updated successfully.` });
       } else {
@@ -130,7 +130,7 @@ export default function AdminUsersPage() {
           email: email.trim(),
           role,
           phone: phone.trim() || undefined,
-          unit_id: role === 'supervisor' ? null : (unitId || null),
+          unit_id: unitId || null,
           password: password.trim() || undefined,
         });
         setFeedback({ type: 'success', message: `User "${fullName}" created/invited successfully.` });
@@ -149,7 +149,7 @@ export default function AdminUsersPage() {
       case 'admin':
         return { label: 'Admin', color: 'bg-purple-100 text-purple-800 border-purple-200' };
       case 'supervisor':
-        return { label: 'Supervisor', color: 'bg-blue-100 text-blue-800 border-blue-200' };
+        return { label: 'Unit Head (View & Approve Only)', color: 'bg-blue-100 text-blue-800 border-blue-200' };
       case 'bd_executive':
         return { label: 'BD Executive', color: 'bg-emerald-100 text-emerald-800 border-emerald-200' };
     }
@@ -221,7 +221,7 @@ export default function AdminUsersPage() {
           >
             <option value="all">All Roles</option>
             <option value="admin">Admin</option>
-            <option value="supervisor">Supervisor</option>
+            <option value="supervisor">Unit Head (View &amp; Approve Only)</option>
             <option value="bd_executive">BD Executive</option>
           </select>
 
@@ -303,7 +303,7 @@ export default function AdminUsersPage() {
                     <div className="flex items-center space-x-2">
                       <Building2 className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                       <span className="font-medium text-slate-800">
-                        {profile.unit ? profile.unit.name : 'All Units (Global / Supervisor)'}
+                        {profile.unit ? profile.unit.name : (profile.role === 'admin' ? 'All Units (Admin)' : 'No Unit Assigned')}
                       </span>
                     </div>
                   </div>
@@ -388,20 +388,28 @@ export default function AdminUsersPage() {
                   onChange={(e) => setRole(e.target.value as UserRole)}
                   className="w-full px-3.5 py-3 min-h-[48px] bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-900 font-medium"
                 >
-                  <option value="bd_executive">BD Executive (Signs & updates their assigned signage)</option>
-                  <option value="supervisor">Supervisor (Read-only access to all units & escalations)</option>
-                  <option value="admin">Admin (Full administrative & CRUD control)</option>
+                  <option value="bd_executive">BD Executive (Signs &amp; updates their assigned signage)</option>
+                  <option value="supervisor">Unit Head (View &amp; Approve Only - Scoped to their unit)</option>
+                  <option value="admin">Admin (Full administrative &amp; CRUD control)</option>
                 </select>
               </div>
 
-              {role !== 'supervisor' && (
+              {role !== 'admin' && (
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    Assigned Hospital Unit
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">
+                      Assigned Hospital Unit {role === 'supervisor' && <span className="text-rose-500">*</span>}
+                    </label>
+                    {role === 'supervisor' && (
+                      <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                        Scoped to 1 Unit
+                      </span>
+                    )}
+                  </div>
                   <select
                     value={unitId}
                     onChange={(e) => setUnitId(e.target.value)}
+                    required={role === 'supervisor'}
                     className="w-full px-3.5 py-3 min-h-[48px] bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white text-slate-900"
                   >
                     <option value="">No Unit Assigned</option>
@@ -411,6 +419,11 @@ export default function AdminUsersPage() {
                       </option>
                     ))}
                   </select>
+                  {role === 'supervisor' && (
+                    <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                      A Unit Head can only view signage, BD executives, and reports for this assigned unit.
+                    </p>
+                  )}
                 </div>
               )}
 

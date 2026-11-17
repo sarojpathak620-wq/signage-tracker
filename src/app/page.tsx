@@ -119,7 +119,7 @@ export default function HomePage() {
               href="/supervisor"
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md transition-all border border-white/10"
             >
-              <span>Supervisor Dashboard</span>
+              <span>Unit Head Portal</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
             <Link
@@ -152,13 +152,13 @@ export default function HomePage() {
             <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center group-hover:scale-105 group-hover:bg-blue-600 group-hover:text-white transition-all shadow-xs">
               <Shield className="w-6 h-6" />
             </div>
-            <h3 className="mt-4 text-base font-bold text-slate-900">Supervisor Command Center</h3>
+            <h3 className="mt-4 text-base font-bold text-slate-900">Unit Head Portal (View &amp; Approve Only)</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Unit-wise status (Updated / Pending / Overdue), condition filters, inspection audit records.
+              Unit-wise status (Updated / Pending / Overdue), condition filters, inspection audit records, and travel request reviews.
             </p>
           </div>
           <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-blue-600 group-hover:translate-x-0.5 transition-transform">
-            <span>Open Supervisor Dashboard</span>
+            <span>Open Unit Head Portal</span>
             <ArrowRight className="w-4 h-4" />
           </div>
         </Link>

@@ -181,7 +181,7 @@ export default function AdminSettingsPage() {
                   </span>
                 </div>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Escalates overdue unit & area lists directly to unit supervisors and management.
+                  Escalates overdue unit & area lists directly to unit heads and management.
                 </p>
               </div>
             </div>

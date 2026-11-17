@@ -2,7 +2,8 @@
 
 import {
   Unit, Area, Profile, Signage, SignageUpdate,
-  AppSettings, NotificationItem, SignageStatusView, SignageType, SignageCondition, SignageStatus
+  AppSettings, NotificationItem, SignageStatusView, SignageType, SignageCondition, SignageStatus,
+  TravelRequest, TravelRequestStop, TravelRequestStatus
 } from './types';
 import {
   INITIAL_UNITS, INITIAL_AREAS, INITIAL_PROFILES,
@@ -20,6 +21,8 @@ const STORAGE_KEYS = {
   UPDATES: 'st_updates_v1',
   SETTINGS: 'st_settings_v1',
   NOTIFICATIONS: 'st_notifications_v1',
+  TRAVEL_REQUESTS: 'st_travel_requests_v1',
+  TRAVEL_REQUEST_STOPS: 'st_travel_request_stops_v1',
 };
 
 // Helper to calculate distance in meters between two GPS coordinates using Haversine formula
@@ -1064,8 +1067,8 @@ export const DataService = {
   },
 
   // EXPORT MONTHLY REPORT TO CSV
-  async exportMonthlyReportCSV(): Promise<string> {
-    const signages = await this.getSignages({ is_active: true });
+  async exportMonthlyReportCSV(unitId?: string): Promise<string> {
+    const signages = await this.getSignages({ is_active: true, unit_id: unitId });
     const currentMonth = getCurrentMonthKey();
 
     const headers = [
@@ -1168,5 +1171,179 @@ export const DataService = {
     const notifs = getStored<NotificationItem[]>(STORAGE_KEYS.NOTIFICATIONS, INITIAL_NOTIFICATIONS);
     const updated = notifs.map(n => n.id === id ? { ...n, is_read: true } : n);
     setStored(STORAGE_KEYS.NOTIFICATIONS, updated);
+  },
+
+  // TRAVEL REQUESTS (Unit Head Approvals & Mileage Verification)
+  async getTravelRequests(params?: {
+    unit_id?: string;
+    bd_executive_id?: string;
+    status?: TravelRequestStatus;
+  }): Promise<TravelRequest[]> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      try {
+        let query = supabase
+          .from('travel_requests')
+          .select(`
+            *,
+            bd_executive:profiles!travel_requests_bd_executive_id_fkey(*),
+            unit:units(*),
+            reviewer:profiles!travel_requests_reviewed_by_fkey(*),
+            stops:travel_request_stops(*)
+          `)
+          .order('created_at', { ascending: false });
+
+        if (params?.unit_id) query = query.eq('unit_id', params.unit_id);
+        if (params?.bd_executive_id) query = query.eq('bd_executive_id', params.bd_executive_id);
+        if (params?.status) query = query.eq('status', params.status);
+
+        const { data, error } = await query;
+        if (!error && data) return data as TravelRequest[];
+
+        // Fallback without explicit fkey alias if table was created with standard names
+        let simpleQuery = supabase.from('travel_requests').select('*').order('created_at', { ascending: false });
+        if (params?.unit_id) simpleQuery = simpleQuery.eq('unit_id', params.unit_id);
+        if (params?.bd_executive_id) simpleQuery = simpleQuery.eq('bd_executive_id', params.bd_executive_id);
+        if (params?.status) simpleQuery = simpleQuery.eq('status', params.status);
+
+        const fallbackRes = await simpleQuery;
+        if (!fallbackRes.error && fallbackRes.data) {
+          const profiles = await this.getProfiles();
+          const units = await this.getUnits();
+          return fallbackRes.data.map((tr: any) => ({
+            ...tr,
+            bd_executive: profiles.find(p => p.id === tr.bd_executive_id) || null,
+            unit: units.find(u => u.id === tr.unit_id) || null,
+            reviewer: tr.reviewed_by ? profiles.find(p => p.id === tr.reviewed_by) || null : null,
+          }));
+        }
+      } catch (err) {
+        console.warn('Supabase getTravelRequests failed, checking local storage:', err);
+      }
+    }
+
+    const requests = getStored<TravelRequest[]>(STORAGE_KEYS.TRAVEL_REQUESTS, []);
+    const profiles = getStored<Profile[]>(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
+    const units = getStored<Unit[]>(STORAGE_KEYS.UNITS, INITIAL_UNITS);
+
+    let filtered = requests;
+    if (params?.unit_id) filtered = filtered.filter(r => r.unit_id === params.unit_id);
+    if (params?.bd_executive_id) filtered = filtered.filter(r => r.bd_executive_id === params.bd_executive_id);
+    if (params?.status) filtered = filtered.filter(r => r.status === params.status);
+
+    return filtered.map(r => ({
+      ...r,
+      bd_executive: profiles.find(p => p.id === r.bd_executive_id) || null,
+      unit: units.find(u => u.id === r.unit_id) || null,
+      reviewer: r.reviewed_by ? profiles.find(p => p.id === r.reviewed_by) || null : null,
+    }));
+  },
+
+  async updateTravelRequestStatus(params: {
+    requestId: string;
+    status: TravelRequestStatus;
+    reviewedBy: string;
+    reviewComment?: string;
+  }): Promise<TravelRequest> {
+    const updatePayload = {
+      status: params.status,
+      reviewed_by: params.reviewedBy,
+      reviewed_at: new Date().toISOString(),
+      review_comment: params.reviewComment || null,
+    };
+
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('travel_requests')
+        .update(updatePayload)
+        .eq('id', params.requestId)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw new Error(`Failed to update travel request: ${error.message}`);
+      }
+      return data as TravelRequest;
+    }
+
+    const requests = getStored<TravelRequest[]>(STORAGE_KEYS.TRAVEL_REQUESTS, []);
+    const idx = requests.findIndex(r => r.id === params.requestId);
+    if (idx === -1) throw new Error('Travel request not found');
+
+    requests[idx] = {
+      ...requests[idx],
+      ...updatePayload,
+    };
+    setStored(STORAGE_KEYS.TRAVEL_REQUESTS, requests);
+    return requests[idx];
+  },
+
+  async submitTravelRequest(data: {
+    bd_executive_id: string;
+    unit_id: string;
+    month: string;
+    total_distance_km: number;
+    stops: Array<{
+      signage_id: string;
+      signage_update_id?: string | null;
+      latitude: number;
+      longitude: number;
+      visited_at?: string;
+      distance_from_previous_km: number;
+    }>;
+  }): Promise<TravelRequest> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+      const { data: request, error: reqErr } = await supabase
+        .from('travel_requests')
+        .insert({
+          bd_executive_id: data.bd_executive_id,
+          unit_id: data.unit_id,
+          month: data.month,
+          total_distance_km: data.total_distance_km,
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
+        })
+        .select('*')
+        .single();
+
+      if (reqErr) throw new Error(`Failed to create travel request: ${reqErr.message}`);
+
+      if (data.stops.length > 0) {
+        const stopsPayload = data.stops.map(s => ({
+          travel_request_id: request.id,
+          signage_id: s.signage_id,
+          signage_update_id: s.signage_update_id || null,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          visited_at: s.visited_at || new Date().toISOString(),
+          distance_from_previous_km: s.distance_from_previous_km || 0,
+        }));
+
+        const { error: stopsErr } = await supabase
+          .from('travel_request_stops')
+          .insert(stopsPayload);
+
+        if (stopsErr) console.warn('Warning inserting travel request stops:', stopsErr);
+      }
+
+      return request as TravelRequest;
+    }
+
+    const requests = getStored<TravelRequest[]>(STORAGE_KEYS.TRAVEL_REQUESTS, []);
+    const newReq: TravelRequest = {
+      id: crypto.randomUUID(),
+      bd_executive_id: data.bd_executive_id,
+      unit_id: data.unit_id,
+      month: data.month,
+      total_distance_km: data.total_distance_km,
+      status: 'pending',
+      submitted_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+    };
+    requests.unshift(newReq);
+    setStored(STORAGE_KEYS.TRAVEL_REQUESTS, requests);
+    return newReq;
   },
 };

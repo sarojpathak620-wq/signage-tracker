@@ -142,3 +142,36 @@ export interface SignageStatusView {
   status: SignageStatus;
   last_condition: SignageCondition;
 }
+
+export type TravelRequestStatus = 'pending' | 'approved' | 'rejected';
+
+export interface TravelRequest {
+  id: string;
+  bd_executive_id: string;
+  unit_id: string;
+  month: string; // 'YYYY-MM-01'
+  total_distance_km: number;
+  status: TravelRequestStatus;
+  submitted_at: string;
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+  review_comment?: string | null;
+  created_at: string;
+  bd_executive?: Profile | null;
+  unit?: Unit | null;
+  reviewer?: Profile | null;
+  stops?: TravelRequestStop[];
+}
+
+export interface TravelRequestStop {
+  id: string;
+  travel_request_id: string;
+  signage_id: string;
+  signage_update_id?: string | null;
+  latitude: number;
+  longitude: number;
+  visited_at: string;
+  distance_from_previous_km: number;
+  signage?: Signage | null;
+  signage_update?: SignageUpdate | null;
+}
