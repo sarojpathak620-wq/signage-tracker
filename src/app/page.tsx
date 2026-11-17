@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { 
   Building2, Users, MapPin, BookmarkCheck, Settings, 
   ArrowRight, Shield, Map, FileBarChart2, PlayCircle, 
-  Send, Camera, CheckCircle2, AlertCircle, LogOut 
+  Send, Camera, CheckCircle2, AlertCircle, LogOut, FileSpreadsheet 
 } from 'lucide-react';
 import Link from 'next/link';
 import { DataService } from '@/lib/data-service';
@@ -115,6 +115,13 @@ export default function HomePage() {
               <PlayCircle className={`w-4 h-4 ${jobRunning ? 'animate-spin' : ''}`} />
               <span>{jobRunning ? 'Running Scheduled Job...' : 'Trigger Compliance Check'}</span>
             </button>
+            <Link
+              href="/audit-log"
+              className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md transition-all border border-white/10"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-purple-300" />
+              <span>Audit Log</span>
+            </Link>
             <Link
               href="/supervisor"
               className="inline-flex items-center space-x-2 px-4 py-2 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold backdrop-blur-md transition-all border border-white/10"
@@ -299,6 +306,26 @@ export default function HomePage() {
           </div>
           <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-amber-600 group-hover:translate-x-0.5 transition-transform">
             <span>Manage Inventory</span>
+            <ArrowRight className="w-4 h-4" />
+          </div>
+        </Link>
+
+        {/* Audit Log */}
+        <Link
+          href="/audit-log"
+          className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-xs hover:shadow-md hover:border-purple-300 transition-all flex flex-col justify-between"
+        >
+          <div>
+            <div className="w-12 h-12 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center group-hover:scale-105 group-hover:bg-purple-600 group-hover:text-white transition-all shadow-xs">
+              <FileSpreadsheet className="w-6 h-6" />
+            </div>
+            <h3 className="mt-4 text-base font-bold text-slate-900">Inspection Audit Log</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Chronological monthly inspection reports, GPS coordinates, condition checks, and Excel export.
+            </p>
+          </div>
+          <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-purple-600 group-hover:translate-x-0.5 transition-transform">
+            <span>View Audit Logs</span>
             <ArrowRight className="w-4 h-4" />
           </div>
         </Link>

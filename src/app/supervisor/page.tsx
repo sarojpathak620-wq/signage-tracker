@@ -11,7 +11,7 @@ import {
   Sparkles, RefreshCw, Phone, ExternalLink, Camera, 
   AlertOctagon, HelpCircle, Send, PlayCircle, Eye, X, 
   Download, ArrowUpRight, Navigation, CheckCircle, XCircle, MessageSquare,
-  Compass, Route
+  Compass, Route, FileSpreadsheet
 } from 'lucide-react';
 
 export default function SupervisorDashboard() {
@@ -213,6 +213,13 @@ export default function SupervisorDashboard() {
             >
               <Map className="w-4 h-4 text-cyan-400" />
               <span>Map of Signages</span>
+            </Link>
+            <Link
+              href="/audit-log"
+              className="inline-flex items-center space-x-2 px-4 py-2.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold backdrop-blur-md border border-white/10 transition-all shadow-sm"
+            >
+              <FileSpreadsheet className="w-4 h-4 text-purple-400" />
+              <span>Audit Log</span>
             </Link>
             <Link
               href="/supervisor/reports"

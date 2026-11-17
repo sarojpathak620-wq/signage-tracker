@@ -4,9 +4,9 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   PlusCircle, Camera, CheckCircle2, Clock, AlertTriangle,
-  MapPin, Search, ShieldCheck, ChevronRight, RefreshCw, 
+  MapPin, Search, ShieldCheck, ChevronRight, RefreshCw,
   AlertOctagon, HelpCircle, Eye, X, ImageOff, Compass, ShieldAlert,
-  Trash2, Lock, Sparkles, Navigation, Route, Calendar, CheckCircle, 
+  Trash2, Lock, Sparkles, Navigation, Route, Calendar, CheckCircle,
   XCircle, Send, ArrowRight, Building2, Edit3, ExternalLink, RotateCcw
 } from 'lucide-react';
 import { Signage, SignageStatus, SignageCondition, SignageUpdate, MonthlyTravelSummary, ExecutiveVisitStop, TravelRequest } from '@/lib/types';
@@ -275,7 +275,7 @@ export default function BDExecutivePortal() {
 
   return (
     <div className="w-full max-w-lg mx-auto px-4 py-4 pb-32 overflow-x-hidden">
-      
+
       {/* Top Header Card (Phone-first, 390px optimized) */}
       <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-900 rounded-3xl p-5 text-white shadow-xl relative overflow-hidden mb-5">
         <div className="relative z-10">
@@ -321,7 +321,7 @@ export default function BDExecutivePortal() {
               <span className="font-bold text-white">{complianceRate}% Completed ({updatedCount}/{totalCount})</span>
             </div>
             <div className="w-full h-2.5 rounded-full bg-slate-800/80 overflow-hidden p-0.5 border border-white/10">
-              <div 
+              <div
                 className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500"
                 style={{ width: `${complianceRate}%` }}
               />
@@ -335,11 +335,10 @@ export default function BDExecutivePortal() {
         <button
           type="button"
           onClick={() => setActiveTab('signages')}
-          className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${
-            activeTab === 'signages'
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${activeTab === 'signages'
               ? 'bg-white text-slate-900 shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
-          }`}
+            }`}
         >
           <Camera className="w-3.5 h-3.5 text-blue-600" />
           <span>My Signages ({signages.length})</span>
@@ -347,11 +346,10 @@ export default function BDExecutivePortal() {
         <button
           type="button"
           onClick={() => setActiveTab('travel')}
-          className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer relative ${
-            activeTab === 'travel'
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer relative ${activeTab === 'travel'
               ? 'bg-white text-slate-900 shadow-xs'
               : 'text-slate-600 hover:text-slate-900'
-          }`}
+            }`}
         >
           <Navigation className="w-3.5 h-3.5 text-emerald-600" />
           <span>Travel &amp; Visits</span>
@@ -367,303 +365,298 @@ export default function BDExecutivePortal() {
       {activeTab === 'signages' && (
         <>
           {/* Status Counters (Big Touch Targets) */}
-      <div className="grid grid-cols-3 gap-2.5 mb-5">
-        <button
-          onClick={() => setStatusFilter(statusFilter === 'Updated' ? 'All' : 'Updated')}
-          className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-            statusFilter === 'Updated'
-              ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
-              : 'bg-white border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-[11px] font-bold text-slate-600">Updated</span>
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-          </div>
-          <div className="text-xl font-black text-slate-900">{updatedCount}</div>
-        </button>
-
-        <button
-          onClick={() => setStatusFilter(statusFilter === 'Pending' ? 'All' : 'Pending')}
-          className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-            statusFilter === 'Pending'
-              ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 shadow-xs'
-              : 'bg-white border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-[11px] font-bold text-slate-600">Pending</span>
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
-          </div>
-          <div className="text-xl font-black text-slate-900">{pendingCount}</div>
-        </button>
-
-        <button
-          onClick={() => setStatusFilter(statusFilter === 'Overdue' ? 'All' : 'Overdue')}
-          className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-            statusFilter === 'Overdue'
-              ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500/20 shadow-xs'
-              : 'bg-white border-slate-200 hover:border-slate-300'
-          }`}
-        >
-          <div className="flex items-center justify-between w-full">
-            <span className="text-[11px] font-bold text-slate-600">Overdue</span>
-            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-          </div>
-          <div className="text-xl font-black text-slate-900">{overdueCount}</div>
-        </button>
-      </div>
-
-      {/* Search & Filter Bar */}
-      <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs mb-4 space-y-3">
-        <div className="relative">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search address or area..."
-            className="w-full pl-10 pr-4 py-2.5 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
-          />
-        </div>
-
-        {/* Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {(['All', 'Pending', 'Overdue', 'Updated'] as const).map((tab) => (
+          <div className="grid grid-cols-3 gap-2.5 mb-5">
             <button
-              key={tab}
-              onClick={() => setStatusFilter(tab)}
-              className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
-                statusFilter === tab
-                  ? 'bg-slate-900 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
-              }`}
+              onClick={() => setStatusFilter(statusFilter === 'Updated' ? 'All' : 'Updated')}
+              className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${statusFilter === 'Updated'
+                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
             >
-              {tab}
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-bold text-slate-600">Updated</span>
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              </div>
+              <div className="text-xl font-black text-slate-900">{updatedCount}</div>
             </button>
-          ))}
-        </div>
-      </div>
 
-      {/* Signage Cards List */}
-      {loading ? (
-        <div className="py-16 text-center">
-          <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="mt-3 text-xs text-slate-500 font-medium">Loading assigned signages...</p>
-        </div>
-      ) : filteredSignages.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center shadow-xs">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
-            <Camera className="w-6 h-6" />
+            <button
+              onClick={() => setStatusFilter(statusFilter === 'Pending' ? 'All' : 'Pending')}
+              className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${statusFilter === 'Pending'
+                  ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-bold text-slate-600">Pending</span>
+                <Clock className="w-3.5 h-3.5 text-amber-600" />
+              </div>
+              <div className="text-xl font-black text-slate-900">{pendingCount}</div>
+            </button>
+
+            <button
+              onClick={() => setStatusFilter(statusFilter === 'Overdue' ? 'All' : 'Overdue')}
+              className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${statusFilter === 'Overdue'
+                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500/20 shadow-xs'
+                  : 'bg-white border-slate-200 hover:border-slate-300'
+                }`}
+            >
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-bold text-slate-600">Overdue</span>
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+              </div>
+              <div className="text-xl font-black text-slate-900">{overdueCount}</div>
+            </button>
           </div>
-          <h3 className="mt-3 text-sm font-bold text-slate-800">No signages found</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-            {searchQuery || statusFilter !== 'All'
-              ? 'Try adjusting your search query or status filter.'
-              : 'Register your first outdoor marketing signage to begin monthly tracking.'}
-          </p>
-          <Link
-            href="/bd/add"
-            className="mt-4 inline-flex items-center justify-center min-h-[48px] space-x-2 px-5 py-3 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors"
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Register New Signage</span>
-          </Link>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredSignages.map((signage, idx) => {
-            const isUpdated = signage.current_month_status === 'Updated';
-            const isOverdue = signage.current_month_status === 'Overdue';
-            const update = signage.latest_update;
-            const photoSrc = update?.photo_url || update?.photo_path;
-            const isImageFailed = photoSrc ? failedImageUrls[photoSrc] : false;
-            const hoardingCode = getSignageCode(signage, idx + 1);
 
-            // Retake & delete rules:
-            // Only allow retaking & deleting THIS MONTH'S OWN update before next calendar month locks it
-            const isThisMonthUpdate = Boolean(update && update.month === currentMonthKey);
-            const isOwnUpdate = Boolean(update && (update.uploaded_by === user?.id || signage.assigned_to === user?.id));
-            const canModifyThisMonth = isUpdated && isThisMonthUpdate && isOwnUpdate;
-            const isPastMonthFinalized = Boolean(update && update.month !== currentMonthKey);
+          {/* Search & Filter Bar */}
+          <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs mb-4 space-y-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search address or area..."
+                className="w-full pl-10 pr-4 py-2.5 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl text-base sm:text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-slate-400"
+              />
+            </div>
 
-            return (
-              <div
-                key={signage.id}
-                className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all p-4 sm:p-5 flex flex-col justify-between"
+            {/* Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+              {(['All', 'Pending', 'Overdue', 'Updated'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setStatusFilter(tab)}
+                  className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${statusFilter === tab
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Signage Cards List */}
+          {loading ? (
+            <div className="py-16 text-center">
+              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
+              <p className="mt-3 text-xs text-slate-500 font-medium">Loading assigned signages...</p>
+            </div>
+          ) : filteredSignages.length === 0 ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center shadow-xs">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 mx-auto flex items-center justify-center">
+                <Camera className="w-6 h-6" />
+              </div>
+              <h3 className="mt-3 text-sm font-bold text-slate-800">No signages found</h3>
+              <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                {searchQuery || statusFilter !== 'All'
+                  ? 'Try adjusting your search query or status filter.'
+                  : 'Register your first outdoor marketing signage to begin monthly tracking.'}
+              </p>
+              <Link
+                href="/bd/add"
+                className="mt-4 inline-flex items-center justify-center min-h-[48px] space-x-2 px-5 py-3 rounded-xl bg-blue-600 text-white text-xs font-bold hover:bg-blue-700 transition-colors"
               >
-                <div>
-                  {/* Top Status & Type Row */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-black bg-blue-600 text-white shadow-2xs">
-                        {hoardingCode}
-                      </span>
-                      <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                        {signage.type}
-                      </span>
-                      {signage.size && (
-                        <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-100">
-                          {signage.size}
-                        </span>
-                      )}
-                    </div>
+                <PlusCircle className="w-4 h-4" />
+                <span>Register New Signage</span>
+              </Link>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {filteredSignages.map((signage, idx) => {
+                const isUpdated = signage.current_month_status === 'Updated';
+                const isOverdue = signage.current_month_status === 'Overdue';
+                const update = signage.latest_update;
+                const photoSrc = update?.photo_url || update?.photo_path;
+                const isImageFailed = photoSrc ? failedImageUrls[photoSrc] : false;
+                const hoardingCode = getSignageCode(signage, idx + 1);
 
-                    {/* Status Pill */}
-                    {isUpdated ? (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                        <span>Updated This Month</span>
-                      </span>
-                    ) : isOverdue ? (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
-                        <span>Overdue (Take Photo)</span>
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                        <Clock className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Pending Photo</span>
-                      </span>
-                    )}
-                  </div>
+                // Retake & delete rules:
+                // Only allow retaking & deleting THIS MONTH'S OWN update before next calendar month locks it
+                const isThisMonthUpdate = Boolean(update && update.month === currentMonthKey);
+                const isOwnUpdate = Boolean(update && (update.uploaded_by === user?.id || signage.assigned_to === user?.id));
+                const canModifyThisMonth = isUpdated && isThisMonthUpdate && isOwnUpdate;
+                const isPastMonthFinalized = Boolean(update && update.month !== currentMonthKey);
 
-                  {/* Area and Address */}
-                  <h3 className="text-base font-bold text-slate-900 leading-snug">
-                    {signage.address}
-                  </h3>
-                  <div className="mt-1 flex items-center space-x-1.5 text-xs text-slate-500">
-                    <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-                    <span className="font-semibold text-slate-700">{signage.area?.name || 'Area'}</span>
-                    <span>&bull;</span>
-                    <span>{signage.unit?.name || 'Unit'}</span>
-                  </div>
-
-                  {/* Photo Preview & Details Box if inspected */}
-                  {isUpdated && update && (
-                    <div className="mt-3.5 p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-1.5">
-                          <span className="text-[11px] font-semibold text-slate-500">Condition:</span>
-                          {renderConditionBadge(update.condition)}
+                return (
+                  <div
+                    key={signage.id}
+                    className="bg-white rounded-3xl border border-slate-200 shadow-xs hover:border-slate-300 transition-all p-4 sm:p-5 flex flex-col justify-between"
+                  >
+                    <div>
+                      {/* Top Status & Type Row */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-black bg-blue-600 text-white shadow-2xs">
+                            {hoardingCode}
+                          </span>
+                          <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                            {signage.type}
+                          </span>
+                          {signage.size && (
+                            <span className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-100">
+                              {signage.size}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-[11px] text-slate-400 font-mono">
-                          {new Date(update.uploaded_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
-                        </span>
+
+                        {/* Status Pill */}
+                        {isUpdated ? (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Updated This Month</span>
+                          </span>
+                        ) : isOverdue ? (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200 animate-pulse">
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Overdue (Take Photo)</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Pending Photo</span>
+                          </span>
+                        )}
                       </div>
 
-                      {/* Photo Thumbnail with Tap to Enlarge & Broken Image Handling */}
-                      {photoSrc && !isImageFailed ? (
-                        <div
-                          onClick={() => setLightboxData({ url: photoSrc, signage, update })}
-                          className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 cursor-pointer group shadow-xs"
-                        >
-                          <img
-                            src={photoSrc}
-                            alt="Inspection capture"
-                            onError={() => setFailedImageUrls(prev => ({ ...prev, [photoSrc]: true }))}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center text-white text-xs font-bold space-x-1.5">
-                            <Eye className="w-4 h-4 text-cyan-300" />
-                            <span>Tap to Enlarge</span>
+                      {/* Area and Address */}
+                      <h3 className="text-base font-bold text-slate-900 leading-snug">
+                        {signage.address}
+                      </h3>
+                      <div className="mt-1 flex items-center space-x-1.5 text-xs text-slate-500">
+                        <MapPin className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                        <span className="font-semibold text-slate-700">{signage.area?.name || 'Area'}</span>
+                        <span>&bull;</span>
+                        <span>{signage.unit?.name || 'Unit'}</span>
+                      </div>
+
+                      {/* Photo Preview & Details Box if inspected */}
+                      {isUpdated && update && (
+                        <div className="mt-3.5 p-3 rounded-2xl bg-slate-50 border border-slate-100 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-1.5">
+                              <span className="text-[11px] font-semibold text-slate-500">Condition:</span>
+                              {renderConditionBadge(update.condition)}
+                            </div>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              {new Date(update.uploaded_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </span>
                           </div>
+
+                          {/* Photo Thumbnail with Tap to Enlarge & Broken Image Handling */}
+                          {photoSrc && !isImageFailed ? (
+                            <div
+                              onClick={() => setLightboxData({ url: photoSrc, signage, update })}
+                              className="relative aspect-video rounded-xl overflow-hidden bg-slate-900 cursor-pointer group shadow-xs"
+                            >
+                              <img
+                                src={photoSrc}
+                                alt="Inspection capture"
+                                onError={() => setFailedImageUrls(prev => ({ ...prev, [photoSrc]: true }))}
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-colors flex items-center justify-center text-white text-xs font-bold space-x-1.5">
+                                <Eye className="w-4 h-4 text-cyan-300" />
+                                <span>Tap to Enlarge</span>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="aspect-video rounded-xl bg-slate-100 border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 p-3 text-center">
+                              <ImageOff className="w-6 h-6 mb-1 text-slate-300" />
+                              <span className="text-xs font-bold text-slate-600">Photo Unavailable</span>
+                              <span className="text-[10px] text-slate-400">Tap Retake to capture a fresh photo</span>
+                            </div>
+                          )}
+
+                          {/* Remarks and Location Mismatch */}
+                          {update.remarks && (
+                            <div className="text-xs text-slate-700 italic bg-white p-2.5 rounded-xl border border-slate-200/60">
+                              &quot;{update.remarks}&quot;
+                            </div>
+                          )}
+
+                          {update.location_mismatch && (
+                            <div className="text-[11px] font-bold text-rose-700 bg-rose-50 p-2 rounded-xl border border-rose-200 flex items-center space-x-1.5">
+                              <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                              <span>Location mismatch: {Math.round(update.distance_from_site_m || 0)}m from site (&gt;200m)</span>
+                            </div>
+                          )}
+
+                          {/* Admin Audit Feedback Alert */}
+                          {update.admin_remarks && (
+                            <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/90 space-y-1 text-xs">
+                              <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-[11px]">
+                                <Sparkles className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                                <span>Admin Action: {update.admin_action_type || 'Feedback'}</span>
+                              </div>
+                              <p className="text-slate-800 italic text-[11px] leading-relaxed">
+                                &quot;{update.admin_remarks}&quot;
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Primary Action Button (Big Touch Target min 48px) */}
+                    <div className="mt-4 pt-3 border-t border-slate-100">
+                      {canModifyThisMonth ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSignageForCamera(signage)}
+                            className="flex-1 min-h-[48px] py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer shadow-xs bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200"
+                          >
+                            <Camera className="w-4 h-4 text-blue-600" />
+                            <span>Retake Field Photo</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDeleteError(null);
+                              setDeleteModalSignage({ signage, update: update! });
+                            }}
+                            className="min-h-[48px] px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200"
+                            title="Delete this month's photo"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete Photo</span>
+                          </button>
                         </div>
                       ) : (
-                        <div className="aspect-video rounded-xl bg-slate-100 border border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 p-3 text-center">
-                          <ImageOff className="w-6 h-6 mb-1 text-slate-300" />
-                          <span className="text-xs font-bold text-slate-600">Photo Unavailable</span>
-                          <span className="text-[10px] text-slate-400">Tap Retake to capture a fresh photo</span>
-                        </div>
-                      )}
-
-                      {/* Remarks and Location Mismatch */}
-                      {update.remarks && (
-                        <div className="text-xs text-slate-700 italic bg-white p-2.5 rounded-xl border border-slate-200/60">
-                          &quot;{update.remarks}&quot;
-                        </div>
-                      )}
-
-                      {update.location_mismatch && (
-                        <div className="text-[11px] font-bold text-rose-700 bg-rose-50 p-2 rounded-xl border border-rose-200 flex items-center space-x-1.5">
-                          <ShieldAlert className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                          <span>Location mismatch: {Math.round(update.distance_from_site_m || 0)}m from site (&gt;200m)</span>
-                        </div>
-                      )}
-
-                      {/* Admin Audit Feedback Alert */}
-                      {update.admin_remarks && (
-                        <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200/90 space-y-1 text-xs">
-                          <div className="flex items-center space-x-1.5 text-amber-900 font-bold text-[11px]">
-                            <Sparkles className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                            <span>Admin Action: {update.admin_action_type || 'Feedback'}</span>
-                          </div>
-                          <p className="text-slate-800 italic text-[11px] leading-relaxed">
-                            &quot;{update.admin_remarks}&quot;
-                          </p>
+                        <div>
+                          {isPastMonthFinalized && (
+                            <div className="mb-2 text-[11px] text-slate-500 font-medium flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/60">
+                              <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              <span>Previous month inspection ({update?.month}) is finalized &amp; read-only.</span>
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setSelectedSignageForCamera(signage)}
+                            className={`w-full min-h-[48px] py-3 px-4 rounded-2xl text-sm font-bold flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer shadow-sm ${isOverdue
+                                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/25 animate-pulse'
+                                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+                              }`}
+                          >
+                            <Camera className="w-4 h-4" />
+                            <span>Open Camera &amp; Capture Photo</span>
+                          </button>
                         </div>
                       )}
                     </div>
-                  )}
-                </div>
-
-                {/* Primary Action Button (Big Touch Target min 48px) */}
-                <div className="mt-4 pt-3 border-t border-slate-100">
-                  {canModifyThisMonth ? (
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSignageForCamera(signage)}
-                        className="flex-1 min-h-[48px] py-3 px-3 rounded-2xl text-xs sm:text-sm font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer shadow-xs bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200"
-                      >
-                        <Camera className="w-4 h-4 text-blue-600" />
-                        <span>Retake Field Photo</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDeleteError(null);
-                          setDeleteModalSignage({ signage, update: update! });
-                        }}
-                        className="min-h-[48px] px-3.5 py-3 rounded-2xl text-xs font-bold flex items-center justify-center space-x-1.5 transition-all active:scale-98 cursor-pointer text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200"
-                        title="Delete this month's photo"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        <span>Delete Photo</span>
-                      </button>
-                    </div>
-                  ) : (
-                    <div>
-                      {isPastMonthFinalized && (
-                        <div className="mb-2 text-[11px] text-slate-500 font-medium flex items-center space-x-1.5 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200/60">
-                          <Lock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          <span>Previous month inspection ({update?.month}) is finalized &amp; read-only.</span>
-                        </div>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setSelectedSignageForCamera(signage)}
-                        className={`w-full min-h-[48px] py-3 px-4 rounded-2xl text-sm font-bold flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer shadow-sm ${
-                          isOverdue
-                            ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/25 animate-pulse'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
-                        }`}
-                      >
-                        <Camera className="w-4 h-4" />
-                        <span>Open Camera &amp; Capture Photo</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
       )}
-    </>
-  )}
 
       {/* Tab 2: Travel & Visit Summary */}
       {activeTab === 'travel' && (
@@ -712,13 +705,12 @@ export default function BDExecutivePortal() {
 
           {/* Travel Request Status Card */}
           {travelSummary?.existing_request && (!isResubmitting || travelSummary.existing_request.status !== 'rejected') && (
-            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs transition-all ${
-              travelSummary.existing_request.status === 'approved'
+            <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs transition-all ${travelSummary.existing_request.status === 'approved'
                 ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
                 : travelSummary.existing_request.status === 'rejected'
-                ? 'bg-rose-50/80 border-rose-300 text-rose-950'
-                : 'bg-amber-50/80 border-amber-300 text-amber-950'
-            }`}>
+                  ? 'bg-rose-50/80 border-rose-300 text-rose-950'
+                  : 'bg-amber-50/80 border-amber-300 text-amber-950'
+              }`}>
               <div className="flex items-start space-x-3">
                 {travelSummary.existing_request.status === 'approved' && (
                   <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
@@ -732,13 +724,12 @@ export default function BDExecutivePortal() {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      travelSummary.existing_request.status === 'approved'
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${travelSummary.existing_request.status === 'approved'
                         ? 'bg-emerald-200 text-emerald-900'
                         : travelSummary.existing_request.status === 'rejected'
-                        ? 'bg-rose-200 text-rose-900'
-                        : 'bg-amber-200 text-amber-900'
-                    }`}>
+                          ? 'bg-rose-200 text-rose-900'
+                          : 'bg-amber-200 text-amber-900'
+                      }`}>
                       {travelSummary.existing_request.status === 'pending' ? 'Pending Unit Head Review' : travelSummary.existing_request.status}
                     </span>
                     <span className="text-[11px] font-mono text-slate-500">
@@ -938,11 +929,10 @@ export default function BDExecutivePortal() {
                       setSubmitModalOpen(true);
                     }}
                     disabled={travelSummary?.stops_count === 0}
-                    className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer ${
-                      travelSummary?.stops_count === 0
+                    className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer ${travelSummary?.stops_count === 0
                         ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-md shadow-blue-500/25'
-                    }`}
+                      }`}
                   >
                     <Send className="w-4 h-4" />
                     <span>
@@ -1096,13 +1086,12 @@ export default function BDExecutivePortal() {
                     <div>
                       <div className="flex items-center space-x-2">
                         <span className="text-xs font-bold text-slate-900">{pastReq.month}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                          pastReq.status === 'approved'
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${pastReq.status === 'approved'
                             ? 'bg-emerald-100 text-emerald-800'
                             : pastReq.status === 'rejected'
-                            ? 'bg-rose-100 text-rose-800'
-                            : 'bg-amber-100 text-amber-800'
-                        }`}>
+                              ? 'bg-rose-100 text-rose-800'
+                              : 'bg-amber-100 text-amber-800'
+                          }`}>
                           {pastReq.status}
                         </span>
                       </div>

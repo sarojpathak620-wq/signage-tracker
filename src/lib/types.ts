@@ -218,3 +218,28 @@ export interface MonthlyTravelSummary {
   existing_request?: TravelRequest | null;
   past_requests?: TravelRequest[];
 }
+
+export interface InspectionAuditLogItem {
+  id: string;
+  signage_id: string;
+  signage_code: string;
+  unit_id: string;
+  unit_name: string;
+  unit_city: string;
+  area_id: string;
+  area_name: string;
+  address: string;
+  month: string;
+  month_formatted: string;
+  latitude: number;
+  longitude: number;
+  condition: SignageCondition;
+  distance_from_site_m: number;
+  location_mismatch: boolean;
+  uploaded_by_id?: string;
+  inspected_by_name: string;
+  photo_url?: string | null;
+  photo_path?: string | null;
+  uploaded_at: string;
+  remarks?: string | null;
+}

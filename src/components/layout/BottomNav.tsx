@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/auth-context';
 import { 
   Building2, MapPin, Users, Sliders, Settings, 
   LayoutDashboard, Map, FileBarChart2, BookmarkCheck, 
-  PlusCircle, ShieldCheck, Home 
+  PlusCircle, ShieldCheck, Home, FileSpreadsheet 
 } from 'lucide-react';
 
 export function BottomNav() {
@@ -26,6 +26,7 @@ export function BottomNav() {
           { label: 'Areas', href: '/admin/areas', icon: MapPin },
           { label: 'Users', href: '/admin/users', icon: Users },
           { label: 'Signage', href: '/admin/signages', icon: BookmarkCheck },
+          { label: 'Audit Log', href: '/audit-log', icon: FileSpreadsheet },
           { label: 'Settings', href: '/admin/settings', icon: Settings },
         ];
       case 'supervisor':
@@ -33,6 +34,7 @@ export function BottomNav() {
           { label: 'Unit Portal', href: '/supervisor', icon: LayoutDashboard },
           { label: 'Map View', href: '/supervisor/map', icon: Map },
           { label: 'Reports', href: '/supervisor/reports', icon: FileBarChart2 },
+          { label: 'Audit Log', href: '/audit-log', icon: FileSpreadsheet },
         ];
       case 'bd_executive':
         return [

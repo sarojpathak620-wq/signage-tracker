@@ -4,7 +4,7 @@ import {
   Unit, Area, Profile, Signage, SignageUpdate,
   AppSettings, NotificationItem, SignageStatusView, SignageType, SignageCondition, SignageStatus,
   TravelRequest, TravelRequestStop, TravelRequestStatus,
-  ExecutiveVisitStop, MonthlyTravelSummary
+  ExecutiveVisitStop, MonthlyTravelSummary, InspectionAuditLogItem
 } from './types';
 import {
   INITIAL_UNITS, INITIAL_AREAS, INITIAL_PROFILES,
@@ -234,6 +234,24 @@ export function getCurrentMonthKey(date: Date = new Date()): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
   return `${y}-${m}-01`;
+}
+
+// Helper to format date / month key into readable label: 'Jan 2027', 'Nov 2026'
+export function formatAuditMonth(monthStr?: string): string {
+  if (!monthStr) return '—';
+  try {
+    const cleanStr = monthStr.split('T')[0];
+    const parts = cleanStr.split('-');
+    if (parts.length >= 2) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const date = new Date(year, month, 1);
+      return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+    }
+    return monthStr;
+  } catch {
+    return monthStr;
+  }
 }
 
 // Helper to load localStorage or fallback
@@ -1845,5 +1863,238 @@ export const DataService = {
       existing_request: existingRequest,
       past_requests: pastRequests,
     };
+  },
+
+  // INSPECTION AUDIT LOGS (Long format: one row per monthly inspection)
+  async getInspectionAuditLogs(params?: {
+    unit_id?: string;
+    area_id?: string;
+    month_from?: string;
+    month_to?: string;
+    condition?: string;
+    search?: string;
+  }): Promise<InspectionAuditLogItem[]> {
+    if (isSupabaseConfigured()) {
+      const supabase = createClient();
+
+      // 1. Fetch signages with unit and area
+      let sQuery = supabase
+        .from('signages')
+        .select('id, code, name, address, latitude, longitude, unit_id, area_id, unit:units(id, name, city), area:areas(id, name)')
+        .order('id', { ascending: true });
+
+      if (params?.unit_id) {
+        sQuery = sQuery.eq('unit_id', params.unit_id);
+      }
+      if (params?.area_id) {
+        sQuery = sQuery.eq('area_id', params.area_id);
+      }
+
+      const { data: signagesData, error: sErr } = await sQuery;
+      if (sErr) console.warn('Supabase signages fetch error for audit logs:', sErr);
+
+      const signagesMap = new Map<string, any>();
+      (signagesData || []).forEach((s: any, idx: number) => {
+        const code = s.code && s.code.trim() ? s.code.trim().toUpperCase() : getSignageCode(s, idx + 1);
+        signagesMap.set(s.id, { ...s, calculated_code: code });
+      });
+
+      // If unit_id or area_id was specified and no signages match, return empty
+      if ((params?.unit_id || params?.area_id) && signagesMap.size === 0) {
+        return [];
+      }
+
+      // 2. Fetch updates
+      let uQuery = supabase
+        .from('signage_updates')
+        .select('*, uploader:profiles!signage_updates_uploaded_by_fkey(id, full_name, email)');
+
+      if (params?.month_from) {
+        const fromVal = params.month_from.length === 7 ? `${params.month_from}-01` : params.month_from;
+        uQuery = uQuery.gte('month', fromVal);
+      }
+      if (params?.month_to) {
+        const toVal = params.month_to.length === 7 ? `${params.month_to}-01` : params.month_to;
+        uQuery = uQuery.lte('month', toVal);
+      }
+      if (params?.condition && params.condition !== 'all' && params.condition !== 'All') {
+        uQuery = uQuery.eq('condition', params.condition);
+      }
+
+      let { data: updatesData, error: uErr } = await uQuery;
+      if (uErr && (uErr.code === 'PGRST201' || uErr.message?.includes('more than one relationship'))) {
+        let fallbackQ = supabase.from('signage_updates').select('*');
+        if (params?.month_from) {
+          const fromVal = params.month_from.length === 7 ? `${params.month_from}-01` : params.month_from;
+          fallbackQ = fallbackQ.gte('month', fromVal);
+        }
+        if (params?.month_to) {
+          const toVal = params.month_to.length === 7 ? `${params.month_to}-01` : params.month_to;
+          fallbackQ = fallbackQ.lte('month', toVal);
+        }
+        if (params?.condition && params.condition !== 'all' && params.condition !== 'All') {
+          fallbackQ = fallbackQ.eq('condition', params.condition);
+        }
+        const fallbackRes = await fallbackQ;
+        updatesData = fallbackRes.data;
+      }
+
+      const profiles = await this.getProfiles();
+      const profilesMap = new Map<string, Profile>(profiles.map(p => [p.id, p]));
+
+      const results: InspectionAuditLogItem[] = [];
+
+      for (const update of (updatesData || [])) {
+        const signage = signagesMap.get(update.signage_id);
+        if (!signage) continue; // Signage didn't match unit/area filter
+
+        const uploaderProfile = update.uploader || profilesMap.get(update.uploaded_by);
+        const inspectedBy = uploaderProfile?.full_name || uploaderProfile?.email || 'Field BD';
+
+        let photoUrl = update.photo_url;
+        if (!photoUrl && update.photo_path) {
+          photoUrl = await getSignedPhotoUrl(update.photo_path);
+        }
+
+        const item: InspectionAuditLogItem = {
+          id: update.id,
+          signage_id: signage.id,
+          signage_code: signage.calculated_code || getSignageCode(signage),
+          unit_id: signage.unit_id || signage.unit?.id || '',
+          unit_name: signage.unit?.name || 'Assigned Unit',
+          unit_city: signage.unit?.city || '',
+          area_id: signage.area_id || signage.area?.id || '',
+          area_name: signage.area?.name || 'Area',
+          address: signage.address || '',
+          month: update.month,
+          month_formatted: formatAuditMonth(update.month),
+          latitude: Number(update.latitude) || 0,
+          longitude: Number(update.longitude) || 0,
+          condition: update.condition || 'Good',
+          distance_from_site_m: typeof update.distance_from_site_m === 'number' ? update.distance_from_site_m : 0,
+          location_mismatch: !!update.location_mismatch,
+          uploaded_by_id: update.uploaded_by,
+          inspected_by_name: inspectedBy,
+          photo_url: photoUrl || update.photo_path || null,
+          photo_path: update.photo_path || null,
+          uploaded_at: update.uploaded_at,
+          remarks: update.remarks || null,
+        };
+
+        // If search query is provided
+        if (params?.search && params.search.trim()) {
+          const q = params.search.toLowerCase().trim();
+          const matches =
+            item.signage_code.toLowerCase().includes(q) ||
+            item.unit_name.toLowerCase().includes(q) ||
+            item.area_name.toLowerCase().includes(q) ||
+            item.address.toLowerCase().includes(q) ||
+            item.inspected_by_name.toLowerCase().includes(q) ||
+            item.month_formatted.toLowerCase().includes(q);
+          if (!matches) continue;
+        }
+
+        results.push(item);
+      }
+
+      // Sort by Signage Code, then by Month (oldest to newest)
+      results.sort((a, b) => {
+        const codeCmp = a.signage_code.localeCompare(b.signage_code, undefined, { numeric: true, sensitivity: 'base' });
+        if (codeCmp !== 0) return codeCmp;
+        return a.month.localeCompare(b.month);
+      });
+
+      return results;
+    }
+
+    // LocalStorage fallback for demo mode
+    const updates = getStored<SignageUpdate[]>(STORAGE_KEYS.UPDATES, INITIAL_UPDATES);
+    const signages = getStored<Signage[]>(STORAGE_KEYS.SIGNAGES, INITIAL_SIGNAGES);
+    const units = getStored<Unit[]>(STORAGE_KEYS.UNITS, INITIAL_UNITS);
+    const areas = getStored<Area[]>(STORAGE_KEYS.AREAS, INITIAL_AREAS);
+    const profiles = getStored<Profile[]>(STORAGE_KEYS.PROFILES, INITIAL_PROFILES);
+
+    const unitsMap = new Map(units.map(u => [u.id, u]));
+    const areasMap = new Map(areas.map(a => [a.id, a]));
+    const profilesMap = new Map(profiles.map(p => [p.id, p]));
+
+    const signagesMap = new Map<string, any>();
+    signages.forEach((s, idx) => {
+      const u = s.unit_id ? unitsMap.get(s.unit_id) : s.unit;
+      const a = s.area_id ? areasMap.get(s.area_id) : s.area;
+      const withJoins = { ...s, unit: u, area: a };
+      const code = s.code && s.code.trim() ? s.code.trim().toUpperCase() : getSignageCode(withJoins, idx + 1);
+      signagesMap.set(s.id, { ...withJoins, calculated_code: code });
+    });
+
+    const results: InspectionAuditLogItem[] = [];
+
+    for (const update of updates) {
+      const signage = signagesMap.get(update.signage_id);
+      if (!signage) continue;
+
+      if (params?.unit_id && signage.unit_id !== params.unit_id) continue;
+      if (params?.area_id && signage.area_id !== params.area_id) continue;
+      if (params?.condition && params.condition !== 'all' && params.condition !== 'All' && update.condition !== params.condition) continue;
+      if (params?.month_from) {
+        const fromVal = params.month_from.length === 7 ? `${params.month_from}-01` : params.month_from;
+        if (update.month < fromVal) continue;
+      }
+      if (params?.month_to) {
+        const toVal = params.month_to.length === 7 ? `${params.month_to}-01` : params.month_to;
+        if (update.month > toVal) continue;
+      }
+
+      const prof = profilesMap.get(update.uploaded_by);
+      const inspectedBy = prof?.full_name || prof?.email || 'Field BD';
+
+      const item: InspectionAuditLogItem = {
+        id: update.id,
+        signage_id: signage.id,
+        signage_code: signage.calculated_code || getSignageCode(signage),
+        unit_id: signage.unit_id || '',
+        unit_name: signage.unit?.name || 'Assigned Unit',
+        unit_city: signage.unit?.city || '',
+        area_id: signage.area_id || '',
+        area_name: signage.area?.name || 'Area',
+        address: signage.address || '',
+        month: update.month,
+        month_formatted: formatAuditMonth(update.month),
+        latitude: update.latitude,
+        longitude: update.longitude,
+        condition: update.condition || 'Good',
+        distance_from_site_m: update.distance_from_site_m || 0,
+        location_mismatch: !!update.location_mismatch,
+        uploaded_by_id: update.uploaded_by,
+        inspected_by_name: inspectedBy,
+        photo_url: update.photo_url || update.photo_path || null,
+        photo_path: update.photo_path || null,
+        uploaded_at: update.uploaded_at,
+        remarks: update.remarks || null,
+      };
+
+      if (params?.search && params.search.trim()) {
+        const q = params.search.toLowerCase().trim();
+        const matches =
+          item.signage_code.toLowerCase().includes(q) ||
+          item.unit_name.toLowerCase().includes(q) ||
+          item.area_name.toLowerCase().includes(q) ||
+          item.address.toLowerCase().includes(q) ||
+          item.inspected_by_name.toLowerCase().includes(q) ||
+          item.month_formatted.toLowerCase().includes(q);
+        if (!matches) continue;
+      }
+
+      results.push(item);
+    }
+
+    // Sort by Signage Code, then by Month (oldest to newest)
+    results.sort((a, b) => {
+      const codeCmp = a.signage_code.localeCompare(b.signage_code, undefined, { numeric: true, sensitivity: 'base' });
+      if (codeCmp !== 0) return codeCmp;
+      return a.month.localeCompare(b.month);
+    });
+
+    return results;
   },
 };
