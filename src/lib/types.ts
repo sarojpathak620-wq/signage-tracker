@@ -44,6 +44,7 @@ export interface Profile {
 
 export interface Signage {
   id: string;
+  code?: string | null;
   unit_id: string;
   area_id: string;
   address: string;
@@ -184,6 +185,7 @@ export interface TravelRequestStop {
 
 export interface ExecutiveVisitStop {
   signage_id: string;
+  signage_code: string;
   signage_update_id?: string | null;
   signage_address: string;
   signage_area_name?: string;
@@ -194,7 +196,10 @@ export interface ExecutiveVisitStop {
   latitude: number;
   longitude: number;
   visited_at: string;
+  distance_from_hospital_km: number;
+  round_trip_distance_km: number;
   distance_from_previous_km: number;
+  google_maps_directions_url: string;
 }
 
 export interface MonthlyTravelSummary {

@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS public.travel_requests (
 ALTER TABLE public.travel_requests ADD COLUMN IF NOT EXISTS start_location TEXT DEFAULT 'Hospital Base Office';
 ALTER TABLE public.travel_requests ADD COLUMN IF NOT EXISTS is_round_trip BOOLEAN DEFAULT false;
 ALTER TABLE public.travel_requests ADD COLUMN IF NOT EXISTS travel_purpose TEXT;
+ALTER TABLE public.signages ADD COLUMN IF NOT EXISTS code TEXT;
 
 -- 3. CREATE TABLE: travel_request_stops
 CREATE TABLE IF NOT EXISTS public.travel_request_stops (

@@ -10,7 +10,7 @@ import {
   FileText, Sparkles
 } from 'lucide-react';
 import { Unit, Area, SignageType, SignageCondition } from '@/lib/types';
-import { DataService } from '@/lib/data-service';
+import { DataService, getUnitCodePrefix } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { CameraCaptureModal } from '@/components/signage/CameraCaptureModal';
 
@@ -75,6 +75,7 @@ export default function RegisterSignagePage() {
 
   // Form state
   const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [assetCode, setAssetCode] = useState('');
   const [selectedAreaId, setSelectedAreaId] = useState('');
   const [newAreaName, setNewAreaName] = useState('');
   const [isAddingCustomArea, setIsAddingCustomArea] = useState(false);
@@ -123,6 +124,8 @@ export default function RegisterSignagePage() {
           unitToSelect = loadedUnits[0].id;
         }
         setSelectedUnitId(unitToSelect);
+        const selUnit = loadedUnits.find(u => u.id === unitToSelect);
+        setAssetCode(`${getUnitCodePrefix(selUnit?.name || selUnit?.city)}01`);
 
         // Pre-select first area for that unit
         const matchingAreas = loadedAreas.filter(a => a.unit_id === unitToSelect);
@@ -288,6 +291,7 @@ export default function RegisterSignagePage() {
         type,
         size: size.trim() || undefined,
         assigned_to: user?.id || null,
+        code: assetCode.trim().toUpperCase() || undefined,
       });
 
       // Step 2: Upload First Photo and Create First Monthly Update
@@ -394,7 +398,14 @@ export default function RegisterSignagePage() {
           </div>
           <select
             value={selectedUnitId}
-            onChange={(e) => setSelectedUnitId(e.target.value)}
+            onChange={(e) => {
+              const newUnitId = e.target.value;
+              setSelectedUnitId(newUnitId);
+              const sel = units.find(u => u.id === newUnitId);
+              setAssetCode(`${getUnitCodePrefix(sel?.name || sel?.city)}01`);
+              const matching = areas.filter(a => a.unit_id === newUnitId);
+              if (matching.length > 0) setSelectedAreaId(matching[0].id);
+            }}
             className="w-full min-h-[48px] px-3.5 py-3 text-base sm:text-sm font-medium rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 cursor-pointer"
           >
             {units.map((u) => (
@@ -403,6 +414,28 @@ export default function RegisterSignagePage() {
               </option>
             ))}
           </select>
+        </div>
+
+        {/* Hoarding Unique Asset Code */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-bold uppercase tracking-wider text-slate-700">
+              Unique Hoarding / Asset Code *
+            </label>
+            <span className="text-[10px] text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+              e.g. SEHJ01 for Jaipur Hoarding #1
+            </span>
+          </div>
+          <input
+            type="text"
+            value={assetCode}
+            onChange={(e) => setAssetCode(e.target.value.toUpperCase())}
+            placeholder="e.g. SEHJ01"
+            className="w-full min-h-[48px] px-3.5 py-3 text-base sm:text-sm font-mono font-black uppercase rounded-2xl bg-slate-50 border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900"
+          />
+          <p className="text-[11px] text-slate-400 mt-1">
+            Every outdoor hoarding has a unique code. Travel distance from hospital will be tracked against this code.
+          </p>
         </div>
 
         {/* 2. Geographical Area */}

@@ -196,6 +196,39 @@ export function buildGoogleMapsDirectionsUrl(params: {
   return url;
 }
 
+export function getUnitCodePrefix(unitNameOrCity?: string): string {
+  if (!unitNameOrCity) return 'SEH';
+  const lower = unitNameOrCity.toLowerCase();
+  if (lower.includes('jaipur')) return 'SEHJ';
+  if (lower.includes('bangalore') || lower.includes('bengaluru')) return 'SEHB';
+  if (lower.includes('coimbatore')) return 'SEHC';
+  if (lower.includes('anand')) return 'SEHA';
+  if (lower.includes('ludhiana')) return 'SEHL';
+  if (lower.includes('kanpur')) return 'SEHK';
+  if (lower.includes('varanasi')) return 'SEHV';
+  if (lower.includes('guntur')) return 'SEHG';
+  if (lower.includes('hyderabad')) return 'SEHH';
+  if (lower.includes('indore')) return 'SEHI';
+  if (lower.includes('panvel') || lower.includes('mumbai')) return 'SEHP';
+  if (lower.includes('shimoga')) return 'SEHS';
+  if (lower.includes('chennai')) return 'SEHM';
+  if (lower.includes('krishnankoil')) return 'SEHKK';
+
+  const cleaned = unitNameOrCity.replace(/[^a-zA-Z]/g, '').toUpperCase();
+  return cleaned.slice(0, 4) || 'SEH';
+}
+
+export function getSignageCode(
+  signage?: { code?: string | null; id?: string; unit?: { name?: string; city?: string } | null; unit_id?: string } | null,
+  fallbackIndex: number = 1
+): string {
+  if (signage?.code && signage.code.trim()) {
+    return signage.code.trim().toUpperCase();
+  }
+  const prefix = getUnitCodePrefix(signage?.unit?.name || signage?.unit?.city);
+  return `${prefix}${String(fallbackIndex).padStart(2, '0')}`;
+}
+
 // Helper to get current month first-day string: 'YYYY-MM-01'
 export function getCurrentMonthKey(date: Date = new Date()): string {
   const y = date.getFullYear();
@@ -597,6 +630,7 @@ export const DataService = {
     type: SignageType;
     size?: string;
     assigned_to?: string | null;
+    code?: string;
   }): Promise<Signage> {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
@@ -614,33 +648,48 @@ export const DataService = {
         }
       }
 
-      const { data: newSignage, error } = await supabase
+      const insertPayload: Record<string, any> = {
+        unit_id: data.unit_id,
+        area_id: data.area_id,
+        address: data.address,
+        latitude: data.latitude,
+        longitude: data.longitude,
+        type: data.type,
+        size: data.size || null,
+        assigned_to: assignedTo || null,
+        is_active: true,
+      };
+      if (data.code) {
+        insertPayload.code = data.code;
+      }
+
+      let res = await supabase
         .from('signages')
-        .insert({
-          unit_id: data.unit_id,
-          area_id: data.area_id,
-          address: data.address,
-          latitude: data.latitude,
-          longitude: data.longitude,
-          type: data.type,
-          size: data.size || null,
-          assigned_to: assignedTo || null,
-          is_active: true,
-        })
+        .insert(insertPayload)
         .select('*, unit:units(*), area:areas(*), assigned_profile:profiles(*)')
         .single();
 
-      if (error) {
-        console.error('Supabase createSignage error:', error);
-        const errParts = [
-          error.message,
-          error.details,
-          error.hint ? `Hint: ${error.hint}` : null,
-          error.code ? `Code: ${error.code}` : null,
-        ].filter(Boolean);
-        throw new Error(errParts.join(' | ') || error.message);
+      // Fallback if 'code' column does not exist yet in Supabase
+      if (res.error && res.error.message?.includes('code')) {
+        delete insertPayload.code;
+        res = await supabase
+          .from('signages')
+          .insert(insertPayload)
+          .select('*, unit:units(*), area:areas(*), assigned_profile:profiles(*)')
+          .single();
       }
-      return newSignage;
+
+      if (res.error) {
+        console.error('Supabase createSignage error:', res.error);
+        const errParts = [
+          res.error.message,
+          res.error.details,
+          res.error.hint ? `Hint: ${res.error.hint}` : null,
+          res.error.code ? `Code: ${res.error.code}` : null,
+        ].filter(Boolean);
+        throw new Error(errParts.join(' | ') || res.error.message);
+      }
+      return res.data;
     }
 
     const signages = getStored<Signage[]>(STORAGE_KEYS.SIGNAGES, INITIAL_SIGNAGES);
@@ -650,6 +699,7 @@ export const DataService = {
 
     const newSignage: Signage = {
       id: crypto.randomUUID(),
+      code: data.code || null,
       unit_id: data.unit_id,
       area_id: data.area_id,
       address: data.address,
@@ -1725,43 +1775,37 @@ export const DataService = {
     // Sort visits by uploaded_at ascending
     rawVisits.sort((a, b) => new Date(a.uploaded_at).getTime() - new Date(b.uploaded_at).getTime());
 
-    // Check round trip option
-    const isRoundTrip = options?.isRoundTrip ?? existingRequest?.is_round_trip ?? false;
+    // Default round-trip to true (travel from hospital to hoarding and return to hospital)
+    const isRoundTrip = options?.isRoundTrip ?? existingRequest?.is_round_trip ?? true;
 
-    // Calculate distances: Leg 1 starts from Hospital Base Office (or Camp) to Stop #1
-    let cumulativeDistanceKm = 0;
+    // Calculate direct Hospital to Hoarding distance for each visited signage
+    let totalKmSum = 0;
     const stops: ExecutiveVisitStop[] = await Promise.all(
       rawVisits.map(async (v, index) => {
-        let distFromPrev = 0;
-        if (index === 0) {
-          // Travel from Hospital Base Office to Stop #1
-          const distMeters = calculateDistanceMeters(
-            baseLocation.latitude,
-            baseLocation.longitude,
-            v.latitude,
-            v.longitude
-          );
-          distFromPrev = Number((distMeters / 1000).toFixed(2));
-        } else {
-          // Travel between consecutive signage stops
-          const prev = rawVisits[index - 1];
-          const distMeters = calculateDistanceMeters(
-            prev.latitude,
-            prev.longitude,
-            v.latitude,
-            v.longitude
-          );
-          distFromPrev = Number((distMeters / 1000).toFixed(2));
-        }
-        cumulativeDistanceKm += distFromPrev;
+        const signageCode = getSignageCode(v.signage, index + 1);
+
+        // Calculate distance directly from Hospital Base Office to this hoarding
+        const distMeters = calculateDistanceMeters(
+          baseLocation.latitude,
+          baseLocation.longitude,
+          v.latitude,
+          v.longitude
+        );
+        const distFromHospitalKm = Number((distMeters / 1000).toFixed(1));
+        const roundTripKm = Number((distFromHospitalKm * 2).toFixed(1));
+        const activeTripKm = isRoundTrip ? roundTripKm : distFromHospitalKm;
+        totalKmSum += activeTripKm;
 
         let photoUrl = v.photo_url;
         if (!photoUrl && v.photo_path) {
           photoUrl = await getSignedPhotoUrl(v.photo_path);
         }
 
+        const directGmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${baseLocation.latitude},${baseLocation.longitude}&destination=${v.latitude},${v.longitude}&travelmode=driving`;
+
         return {
           signage_id: v.signage_id,
+          signage_code: signageCode,
           signage_update_id: v.id,
           signage_address: v.signage?.address || 'Signage Site',
           signage_area_name: v.signage?.area?.name || '',
@@ -1772,30 +1816,21 @@ export const DataService = {
           latitude: v.latitude,
           longitude: v.longitude,
           visited_at: v.uploaded_at,
-          distance_from_previous_km: distFromPrev,
+          distance_from_hospital_km: distFromHospitalKm,
+          round_trip_distance_km: roundTripKm,
+          distance_from_previous_km: activeTripKm,
+          google_maps_directions_url: directGmapsUrl,
         };
       })
     );
 
-    // If round-trip is enabled and there is at least 1 stop, add return leg to base
-    if (isRoundTrip && rawVisits.length > 0) {
-      const lastVisit = rawVisits[rawVisits.length - 1];
-      const returnMeters = calculateDistanceMeters(
-        lastVisit.latitude,
-        lastVisit.longitude,
-        baseLocation.latitude,
-        baseLocation.longitude
-      );
-      cumulativeDistanceKm += Number((returnMeters / 1000).toFixed(2));
-    }
-
-    const totalKm = Number(cumulativeDistanceKm.toFixed(2));
+    const totalKm = Number(totalKmSum.toFixed(1));
 
     const googleMapsUrl = buildGoogleMapsDirectionsUrl({
       originLat: baseLocation.latitude,
       originLng: baseLocation.longitude,
       originName: baseLocation.name,
-      stops: stops.map(s => ({ lat: s.latitude, lng: s.longitude, label: s.signage_address })),
+      stops: stops.map(s => ({ lat: s.latitude, lng: s.longitude, label: `${s.signage_code}: ${s.signage_address}` })),
       isRoundTrip,
     });
 

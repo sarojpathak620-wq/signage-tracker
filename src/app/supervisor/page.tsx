@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Signage, Unit, Area, SignageCondition, SignageStatus, TravelRequest, TravelRequestStatus } from '@/lib/types';
-import { DataService, getUnitBaseCoordinates, buildGoogleMapsDirectionsUrl } from '@/lib/data-service';
+import { DataService, getUnitBaseCoordinates, buildGoogleMapsDirectionsUrl, getSignageCode } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { 
   Building2, MapPin, CheckCircle2, Clock, AlertTriangle, 
@@ -821,21 +821,26 @@ export default function SupervisorDashboard() {
                           </div>
                         </td>
                         <td className="py-3 px-4">
-                          <div className="flex items-center space-x-1.5">
+                          <div className="flex items-center space-x-1.5 flex-wrap gap-y-1">
                             <span className="font-mono font-bold text-slate-900 text-sm">
                               {Number(req.total_distance_km).toFixed(1)} km
                             </span>
-                            {req.is_round_trip && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-200">
-                                Round Trip
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 font-semibold border border-blue-200">
+                              {req.is_round_trip !== false ? 'Round Trip' : 'One Way'}
+                            </span>
+                          </div>
+                          <div className="text-[11px] font-semibold text-slate-700 mt-1 flex items-center space-x-1">
+                            <span>Hospital ↔</span>
+                            {req.stops && req.stops.length > 0 ? (
+                              <span className="font-mono font-bold text-blue-600">
+                                {req.stops.map((s, i) => getSignageCode(s.signage, i + 1)).join(', ')}
                               </span>
+                            ) : (
+                              <span className="text-slate-500">Hoardings</span>
                             )}
                           </div>
-                          <div className="text-[10px] text-slate-500 mt-0.5">
-                            {req.start_location ? `Start: ${req.start_location}` : 'Start: Hospital Office'}
-                          </div>
                           {req.travel_purpose && (
-                            <div className="text-[10px] text-slate-600 italic mt-0.5 max-w-[200px] truncate" title={req.travel_purpose}>
+                            <div className="text-[10px] text-slate-500 italic mt-0.5 max-w-[200px] truncate" title={req.travel_purpose}>
                               &ldquo;{req.travel_purpose}&rdquo;
                             </div>
                           )}
@@ -846,7 +851,7 @@ export default function SupervisorDashboard() {
                               originLng: baseLoc.longitude,
                               originName: baseLoc.name,
                               stops: req.stops?.map(s => ({ lat: Number(s.latitude), lng: Number(s.longitude) })) || [],
-                              isRoundTrip: Boolean(req.is_round_trip),
+                              isRoundTrip: Boolean(req.is_round_trip ?? true),
                             });
                             return (
                               <a

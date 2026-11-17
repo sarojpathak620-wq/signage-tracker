@@ -10,7 +10,7 @@ import {
   XCircle, Send, ArrowRight, Building2, Edit3, ExternalLink, RotateCcw
 } from 'lucide-react';
 import { Signage, SignageStatus, SignageCondition, SignageUpdate, MonthlyTravelSummary, ExecutiveVisitStop, TravelRequest } from '@/lib/types';
-import { DataService, getCurrentMonthKey } from '@/lib/data-service';
+import { DataService, getCurrentMonthKey, getSignageCode } from '@/lib/data-service';
 import { useAuth } from '@/contexts/auth-context';
 import { CameraInspectionModal } from '@/components/signage/CameraInspectionModal';
 import { TravelRouteMap } from '@/components/map/TravelRouteMap';
@@ -36,10 +36,8 @@ export default function BDExecutivePortal() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
 
-  // Route options & claim state
-  const [isRoundTrip, setIsRoundTrip] = useState(false);
-  const [startLocationType, setStartLocationType] = useState<'hospital' | 'custom'>('hospital');
-  const [customStartLocation, setCustomStartLocation] = useState('');
+  // Route options & claim state (Hospital to Hoarding distance)
+  const [isRoundTrip, setIsRoundTrip] = useState(true);
   const [claimedKmInput, setClaimedKmInput] = useState<string>('');
   const [travelPurposeNotes, setTravelPurposeNotes] = useState('');
   const [isResubmitting, setIsResubmitting] = useState(false);
@@ -112,14 +110,10 @@ export default function BDExecutivePortal() {
       setTravelSummary(summary);
 
       if (summary.existing_request) {
-        setIsRoundTrip(Boolean(summary.existing_request.is_round_trip));
+        setIsRoundTrip(summary.existing_request.is_round_trip !== undefined ? Boolean(summary.existing_request.is_round_trip) : true);
         setClaimedKmInput(String(summary.existing_request.total_distance_km));
         if (summary.existing_request.travel_purpose) {
           setTravelPurposeNotes(summary.existing_request.travel_purpose);
-        }
-        if (summary.existing_request.start_location && summary.existing_request.start_location !== 'Hospital Base Office') {
-          setStartLocationType('custom');
-          setCustomStartLocation(summary.existing_request.start_location);
         }
       } else {
         setClaimedKmInput(String(summary.total_distance_km));
@@ -158,9 +152,7 @@ export default function BDExecutivePortal() {
       ? Number(Number(claimedKmInput).toFixed(1))
       : travelSummary.total_distance_km;
 
-    const startLoc = startLocationType === 'custom' && customStartLocation.trim()
-      ? customStartLocation.trim()
-      : travelSummary.origin?.name || 'Hospital Base Office';
+    const startLoc = travelSummary.origin?.name || user.unit?.name || 'Hospital Base Office';
 
     setSubmittingTravel(true);
     setSubmitError(null);
@@ -480,12 +472,13 @@ export default function BDExecutivePortal() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredSignages.map((signage) => {
+          {filteredSignages.map((signage, idx) => {
             const isUpdated = signage.current_month_status === 'Updated';
             const isOverdue = signage.current_month_status === 'Overdue';
             const update = signage.latest_update;
             const photoSrc = update?.photo_url || update?.photo_path;
             const isImageFailed = photoSrc ? failedImageUrls[photoSrc] : false;
+            const hoardingCode = getSignageCode(signage, idx + 1);
 
             // Retake & delete rules:
             // Only allow retaking & deleting THIS MONTH'S OWN update before next calendar month locks it
@@ -503,6 +496,9 @@ export default function BDExecutivePortal() {
                   {/* Top Status & Type Row */}
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                     <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-black bg-blue-600 text-white shadow-2xs">
+                        {hoardingCode}
+                      </span>
                       <span className="px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
                         {signage.type}
                       </span>
@@ -823,69 +819,31 @@ export default function BDExecutivePortal() {
                 </span>
               </div>
 
-              {/* Starting Point & Round Trip Controls */}
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                <div className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
-                  <Building2 className="w-3.5 h-3.5 text-blue-600" />
-                  <span>Trip Origin &amp; Route Configuration</span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                  <label className={`p-2.5 rounded-xl border flex items-center space-x-2 cursor-pointer transition-all ${
-                    startLocationType === 'hospital'
-                      ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="startLocationType"
-                      checked={startLocationType === 'hospital'}
-                      onChange={() => setStartLocationType('hospital')}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className="truncate">🏥 {travelSummary?.origin?.name || 'Hospital Base Office'}</span>
-                  </label>
-
-                  <label className={`p-2.5 rounded-xl border flex items-center space-x-2 cursor-pointer transition-all ${
-                    startLocationType === 'custom'
-                      ? 'bg-blue-50 border-blue-300 text-blue-900 font-bold'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100'
-                  }`}>
-                    <input
-                      type="radio"
-                      name="startLocationType"
-                      checked={startLocationType === 'custom'}
-                      onChange={() => setStartLocationType('custom')}
-                      className="text-blue-600 focus:ring-blue-500"
-                    />
-                    <span>📍 Screening Camp / Custom Start</span>
-                  </label>
-                </div>
-
-                {startLocationType === 'custom' && (
-                  <div className="animate-in fade-in duration-150">
-                    <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                      Screening Camp / Starting Location Name
-                    </label>
-                    <input
-                      type="text"
-                      value={customStartLocation}
-                      onChange={(e) => setCustomStartLocation(e.target.value)}
-                      placeholder="e.g. Screening Camp - Chomu / Outstation Check-in"
-                      className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+              {/* Simple Hospital Base & Round Trip Switch */}
+              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
+                    <Building2 className="w-4 h-4" />
                   </div>
-                )}
+                  <div>
+                    <div className="text-xs font-bold text-slate-800">
+                      {travelSummary?.origin?.name || 'Hospital Base Office'}
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      {travelSummary?.origin?.address || 'Base Location'}
+                    </div>
+                  </div>
+                </div>
 
-                {/* Round Trip Checkbox */}
-                <label className="flex items-center space-x-2.5 text-xs text-slate-700 font-medium cursor-pointer pt-1">
+                {/* Round Trip Toggle */}
+                <label className="flex items-center space-x-2 text-xs text-slate-700 font-bold cursor-pointer shrink-0 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
                   <input
                     type="checkbox"
                     checked={isRoundTrip}
                     onChange={(e) => handleToggleRoundTrip(e.target.checked)}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-slate-300"
                   />
-                  <span>Include Return Journey (Round Trip back to Office / Starting Point)</span>
+                  <span>Round Trip (2× Distance)</span>
                 </label>
               </div>
 
@@ -893,13 +851,13 @@ export default function BDExecutivePortal() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100">
                   <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                    GPS Straight-Line Baseline
+                    Hospital to Hoardings Distance
                   </div>
-                  <div className="text-sm font-mono font-bold text-slate-700 mt-0.5">
+                  <div className="text-base font-mono font-bold text-slate-800 mt-0.5">
                     {travelSummary?.total_distance_km !== undefined ? travelSummary.total_distance_km.toFixed(1) : '0.0'} KM
                   </div>
                   <div className="text-[10px] text-slate-400 mt-0.5">
-                    Calculated from Office to Stop #1 + route
+                    {travelSummary?.stops_count || 0} hoarding visit{travelSummary?.stops_count === 1 ? '' : 's'} {isRoundTrip ? '(Round Trip)' : '(One Way)'}
                   </div>
                 </div>
 
@@ -920,21 +878,21 @@ export default function BDExecutivePortal() {
                     <span className="text-xs font-bold text-blue-700">KM</span>
                   </div>
                   <div className="text-[10px] text-blue-600 mt-1">
-                    Editable for actual vehicle odometer road mileage
+                    Editable for vehicle odometer road mileage
                   </div>
                 </div>
               </div>
 
-              {/* Purpose / Screening Camp Notes */}
+              {/* Purpose / Remarks */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                  Travel Purpose / Screening Camp Notes (Optional)
+                  Travel Remarks (Optional)
                 </label>
                 <input
                   type="text"
                   value={travelPurposeNotes}
                   onChange={(e) => setTravelPurposeNotes(e.target.value)}
-                  placeholder="e.g. Village eye screening camp at Chomu + signage verification"
+                  placeholder="e.g. Monthly hoarding inspection & photo verification"
                   className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800"
                 />
               </div>
@@ -1080,9 +1038,9 @@ export default function BDExecutivePortal() {
                       )}
 
                       <div className="min-w-0 flex-1">
-                        <div className="flex items-center space-x-2">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-200 text-slate-800">
-                            Stop #{idx + 1}
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          <span className="px-2 py-0.5 rounded-lg text-xs font-mono font-black bg-blue-600 text-white shadow-2xs">
+                            {stop.signage_code}
                           </span>
                           <span className="text-[10px] font-mono text-slate-500">
                             {new Date(stop.visited_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(stop.visited_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
@@ -1094,21 +1052,31 @@ export default function BDExecutivePortal() {
                         <p className="text-[11px] text-slate-500 truncate">
                           {stop.signage_area_name ? `${stop.signage_area_name} • ` : ''}{stop.signage_type}
                         </p>
+                        <div className="mt-1 flex items-center space-x-2">
+                          <a
+                            href={stop.google_maps_directions_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center space-x-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 cursor-pointer"
+                          >
+                            <Compass className="w-3 h-3" />
+                            <span>Hospital to {stop.signage_code} Directions</span>
+                            <ExternalLink className="w-2.5 h-2.5 opacity-70" />
+                          </a>
+                        </div>
                       </div>
                     </div>
 
-                    {/* Distance from previous stop badge */}
+                    {/* Distance from Hospital Badge */}
                     <div className="text-right shrink-0">
-                      {idx === 0 ? (
-                        <span className="px-2.5 py-1 rounded-xl text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                          Start (0.0 km)
-                        </span>
-                      ) : (
-                        <div className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-xl text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
-                          <ArrowRight className="w-3 h-3 text-blue-500" />
-                          <span>+{stop.distance_from_previous_km} KM</span>
+                      <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-blue-800 border border-blue-200 text-right">
+                        <div className="text-xs font-mono font-black text-blue-700">
+                          {isRoundTrip ? `${stop.round_trip_distance_km} KM` : `${stop.distance_from_hospital_km} KM`}
                         </div>
-                      )}
+                        <div className="text-[9px] text-blue-600 font-semibold uppercase tracking-wider">
+                          {isRoundTrip ? 'Round Trip' : 'One Way'}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -1288,11 +1256,9 @@ export default function BDExecutivePortal() {
                 <span className="font-bold text-slate-800">{currentMonthName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Origin:</span>
+                <span className="text-slate-500">Hospital Base:</span>
                 <span className="font-semibold text-slate-800 truncate max-w-[180px]">
-                  {startLocationType === 'custom' && customStartLocation.trim()
-                    ? customStartLocation.trim()
-                    : travelSummary.origin?.name || 'Hospital Base Office'}
+                  {travelSummary.origin?.name || user?.unit?.name || 'Hospital Base Office'}
                 </span>
               </div>
               <div className="flex justify-between">

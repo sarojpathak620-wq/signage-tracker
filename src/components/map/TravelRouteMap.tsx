@@ -51,13 +51,14 @@ export function TravelRouteMap({
     },
     ...stops.map((s, idx) => ({
       id: s.signage_id || `stop-${idx}`,
+      code: s.signage_code || `Stop #${idx + 1}`,
       title: s.signage_address,
       address: `${s.signage_area_name ? `${s.signage_area_name} • ` : ''}${s.signage_type}`,
       lat: s.latitude,
       lng: s.longitude,
       isOrigin: false,
       stopNum: idx + 1,
-      distanceFromPrev: s.distance_from_previous_km,
+      distanceFromPrev: s.distance_from_hospital_km ?? s.distance_from_previous_km,
       time: s.visited_at,
       condition: s.condition,
       photoUrl: s.photo_url,
@@ -220,7 +221,7 @@ export function TravelRouteMap({
                   : 'bg-slate-800/90 border-cyan-400 text-cyan-200'
               }`}>
                 <MapPin className="w-3 h-3 text-cyan-400" />
-                <span>Stop #{idx + 1}</span>
+                <span>{stop.signage_code || `Stop #${idx + 1}`}</span>
               </div>
             </div>
           );
