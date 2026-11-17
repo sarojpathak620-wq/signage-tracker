@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signage Tracker & Travel Reimbursement - Interactive Demo Video</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.05); opacity: 0.4; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+    .pulse-ring {
+      animation: pulse-ring 2s infinite ease-in-out;
+    }
+    .custom-shadow {
+      box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 20px rgba(59, 130, 246, 0.15);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen p-3 sm:p-6 antialiased flex flex-col items-center justify-center font-sans">
+
+  <!-- Main Presentation Container (16:9 Cinema Aspect Ratio) -->
+  <div class="w-full max-w-4xl bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+    
+    <!-- Video Player Top Bar -->
+    <div class="px-5 py-3.5 bg-slate-950/80 border-b border-slate-800/80 flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <span class="w-3 h-3 rounded-full bg-rose-500 animate-ping"></span>
+        <span class="w-3 h-3 rounded-full bg-rose-500 -ml-5"></span>
+        <span class="text-xs font-black uppercase tracking-wider text-slate-300">
+          Sankara Eye Hospital • Feature Demo &amp; Training Video
+        </span>
+      </div>
+
+      <div class="flex items-center space-x-2 text-xs">
+        <span id="sceneIndicator" class="px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-300 font-bold border border-blue-400/20">
+          Scene 1 of 6
+        </span>
+        <button id="voiceToggle" class="px-3 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold transition-colors flex items-center space-x-1.5 cursor-pointer">
+          <span id="voiceIcon">🔊</span>
+          <span id="voiceText">Voice: ON</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Video Stage Area -->
+    <div class="relative w-full aspect-video bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950/40 p-4 sm:p-8 flex items-center justify-center overflow-hidden">
+      
+      <!-- Scene 1: BD Executive Dashboard & Hoarding Code SEHJ01 -->
+      <div id="scene1" class="scene w-full max-w-lg transition-all duration-500">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-blue-400">Step 1: BD Executive Portal</span>
+              <h2 class="text-base font-black text-white">Unique Hoarding Codes (e.g. SEHJ01)</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-mono font-black bg-blue-600 text-white shadow-xs">
+              SEHJ01
+            </span>
+          </div>
+
+          <!-- Hoarding Card Preview -->
+          <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="px-2 py-0.5 rounded-md text-xs font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-400/30">
+                Asset: SEHJ01
+              </span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300">
+                Pending Inspection
+              </span>
+            </div>
+            <div class="text-sm font-bold text-white">Near Mall (WTP), JLN Marg</div>
+            <div class="text-xs text-slate-400 flex items-center space-x-1.5">
+              <span>🏥 Sankara Eye Hospital Jaipur</span>
+              <span>•</span>
+              <span>Hoarding (20x10 ft)</span>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-blue-950/40 border border-blue-800/40 text-xs text-blue-200 leading-relaxed">
+            💡 <strong>Simple &amp; Unique:</strong> Every outdoor asset is assigned a standardized code like <strong>SEHJ01</strong> (Jaipur #01) so everyone identifies the exact physical site without confusion.
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 2: Camera Inspection & GPS Locking -->
+      <div id="scene2" class="scene hidden w-full max-w-lg transition-all duration-500">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Step 2: On-Site Inspection</span>
+              <h2 class="text-base font-black text-white">Geotagged Photo Capture</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300">
+              GPS Locked
+            </span>
+          </div>
+
+          <div class="relative rounded-2xl overflow-hidden aspect-video bg-slate-950 border border-slate-700 flex items-center justify-center">
+            <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10"></div>
+            <!-- Simulated Photo Placeholder -->
+            <div class="text-center p-4 z-20">
+              <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto mb-2 border border-emerald-400/30">
+                📸
+              </div>
+              <div class="text-xs font-mono font-bold text-white">SEHJ01 • Hoarding Intact</div>
+              <div class="text-[10px] font-mono text-emerald-400 mt-1">GPS: 26.8532° N, 75.8052° E (Accuracy: 4m)</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-slate-300 leading-relaxed">
+            🛡️ <strong>Anti-Fraud Camera:</strong> BD Executive captures the hoarding photo on-site. The app automatically locks the real-time GPS coordinates and time.
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 3: Direct Hospital to Hoarding Distance -->
+      <div id="scene3" class="scene hidden w-full max-w-lg transition-all duration-500">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Step 3: Distance Calculation</span>
+              <h2 class="text-base font-black text-white">Hospital ↔ Hoarding Distance</h2>
+            </div>
+            <span class="text-xs font-mono font-black text-cyan-400 bg-cyan-950/60 px-3 py-1 rounded-full border border-cyan-500/30">
+              29.6 KM Round Trip
+            </span>
+          </div>
+
+          <!-- Formula Graphic -->
+          <div class="p-4 rounded-2xl bg-gradient-to-r from-blue-950/60 to-slate-900 border border-blue-500/30 space-y-3">
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">🏥 Hospital Base Office</span>
+              <span class="text-blue-400 font-bold">Sankara Eye Hospital, Jaipur</span>
+            </div>
+            <div class="flex items-center justify-between text-xs">
+              <span class="text-slate-400">🎯 Hoarding Asset Code</span>
+              <span class="text-white font-mono font-bold">SEHJ01 (Near Mall)</span>
+            </div>
+            <div class="border-t border-slate-800 pt-2 flex items-center justify-between">
+              <div>
+                <span class="text-[11px] text-slate-400 block">One-Way Distance</span>
+                <span class="text-sm font-mono font-bold text-slate-200">14.8 KM</span>
+              </div>
+              <div class="text-right">
+                <span class="text-[11px] text-cyan-300 block">Round-Trip Claim (2×)</span>
+                <span class="text-lg font-mono font-black text-cyan-400">29.6 KM</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-cyan-950/40 border border-cyan-800/40 text-xs text-cyan-200 leading-relaxed">
+            ✨ <strong>Zero Confusion:</strong> No complex hops! Each visit simply measures the verified distance from the Hospital to that Hoarding and back.
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 4: 1-Tap Google Maps Driving Directions -->
+      <div id="scene4" class="scene hidden w-full max-w-lg transition-all duration-500">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-indigo-400">Step 4: Road Verification</span>
+              <h2 class="text-base font-black text-white">1-Tap Google Maps Driving Route</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300">
+              Live Navigation
+            </span>
+          </div>
+
+          <!-- Simulated Map Preview -->
+          <div class="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+            <div class="flex items-center space-x-3 text-xs">
+              <div class="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold">
+                🗺️
+              </div>
+              <div class="flex-1">
+                <div class="font-bold text-white">Google Maps Driving Directions</div>
+                <div class="text-[10px] text-slate-400">Hospital Base Office ➔ SEHJ01 Hoarding</div>
+              </div>
+              <span class="px-3 py-1 rounded-xl bg-blue-600 text-white text-[11px] font-bold">
+                Open Maps ↗
+              </span>
+            </div>
+
+            <!-- Route Visual Line -->
+            <div class="py-2 px-3 bg-slate-900 rounded-xl flex items-center justify-between text-xs font-mono">
+              <span class="text-indigo-300">🏥 Vidhyadhar Nagar</span>
+              <span class="text-slate-500">➖➖ 14.8 km ➔</span>
+              <span class="text-cyan-300">📍 Near Mall WTP</span>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-xl bg-indigo-950/40 border border-indigo-800/40 text-xs text-indigo-200 leading-relaxed">
+            🚗 <strong>Turn-by-Turn Road Proof:</strong> Anyone can tap the button to verify road traffic, exact driving distance, and odometer match on real roads.
+          </div>
+        </div>
+      </div>
+
+      <!-- Scene 5: Submit Travel Reimbursement -->
+      <div id="scene5" class="scene hidden w-full max-w-lg transition-all duration-500">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-amber-400">Step 5: Travel Request</span>
+              <h2 class="text-base font-black text-white">Submit Claim to Unit Head</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300">
+              1 Request / Month
+            </span>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-2.5 text-xs">
+            <div class="flex justify-between">
+              <span class="text-slate-400">Hoarding Visited:</span>
+              <span class="font-bold text-white">SEHJ01 (Near Mall)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">GPS Calculated Distance:</span>
+              <span class="font-mono font-bold text-slate-300">29.6 KM</span>
+            </div>
+            <div class="flex justify-between items-center border-t border-slate-700 pt-2">
+              <span class="text-slate-300 font-bold">Claimed Vehicle Mileage:</span>
+              <span class="px-2.5 py-1 rounded-lg bg-blue-600/30 text-blue-300 font-mono font-black border border-blue-500/40">
+                29.6 KM
+              </span>
+            </div>
+          </div>
+
+          <button class="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/20 flex items-center justify-center space-x-2">
+            <span>✈️ Submit Travel Claim to Unit Head</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Scene 6: Unit Head Review & Approval -->
+      <div id="scene6" class="scene hidden w-full max-w-lg transition-all duration-500">
+        <div class="bg-slate-900/90 border border-slate-700/80 rounded-3xl p-5 shadow-2xl backdrop-blur-md space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Step 6: Unit Head Dashboard</span>
+              <h2 class="text-base font-black text-white">View &amp; Approve Only</h2>
+            </div>
+            <span class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-300">
+              Scoped to Jaipur Unit
+            </span>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-slate-800/80 border border-slate-700 space-y-2 text-xs">
+            <div class="flex justify-between">
+              <span class="text-slate-400">BD Executive:</span>
+              <span class="font-bold text-white">Pathak (Jaipur Unit)</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Route Covered:</span>
+              <span class="font-mono font-bold text-cyan-400">Hospital ↔ SEHJ01</span>
+            </div>
+            <div class="flex justify-between">
+              <span class="text-slate-400">Claim Amount:</span>
+              <span class="font-mono font-black text-emerald-400 text-sm">29.6 KM (Round Trip)</span>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button class="py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center space-x-1 shadow-md shadow-emerald-600/20">
+              <span>✓ Approve Claim</span>
+            </button>
+            <button class="py-2.5 px-3 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-bold text-xs flex items-center justify-center space-x-1">
+              <span>✕ Reject (With Feedback)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Video Audio Captions & Subtitles Bar -->
+    <div class="px-5 py-3 bg-slate-950 border-t border-slate-800/60 min-h-[56px] flex items-center">
+      <div id="captionText" class="text-xs sm:text-sm text-slate-300 leading-snug font-medium italic">
+        "Step 1: In the BD Portal, each outdoor hoarding has a unique standardized code like SEHJ01 for Sankara Eye Hospital Jaipur."
+      </div>
+    </div>
+
+    <!-- Video Controls & Progress Scrubber -->
+    <div class="p-4 sm:p-5 bg-slate-900 border-t border-slate-800 space-y-3">
+      <!-- Progress Bar -->
+      <div class="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden cursor-pointer" id="progressBarContainer">
+        <div id="progressBar" class="bg-blue-500 h-full w-1/6 transition-all duration-300"></div>
+      </div>
+
+      <!-- Controls Row -->
+      <div class="flex items-center justify-between gap-3">
+        <div class="flex items-center space-x-2">
+          <button id="prevBtn" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer text-xs font-bold">
+            ⏮ Prev
+          </button>
+          <button id="playPauseBtn" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white transition-all shadow-md shadow-blue-500/25 cursor-pointer text-xs font-bold flex items-center space-x-1.5">
+            <span id="playIcon">⏸</span>
+            <span id="playText">Pause</span>
+          </button>
+          <button id="nextBtn" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 transition-colors cursor-pointer text-xs font-bold">
+            Next ⏭
+          </button>
+        </div>
+
+        <div class="flex items-center space-x-3 text-xs text-slate-400">
+          <span id="timestamp">0:00 / 0:45</span>
+          <button id="restartBtn" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] cursor-pointer">
+            🔄 Replay
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-4 text-center text-xs text-slate-400">
+    Tip: Press <kbd class="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 font-mono">Cmd + Shift + 5</kbd> on your Mac to record this screen as an MP4 video to send on WhatsApp or Email.
+  </div>
+
+  <script>
+    const scenes = [
+      {
+        id: 'scene1',
+        title: 'Scene 1 of 6: Hoarding Asset Codes',
+        caption: 'Step 1: Every outdoor advertising asset is assigned a unique code like SEHJ01 for Sankara Eye Hospital Jaipur, so everyone identifies the exact physical site without confusion.',
+        duration: 8
+      },
+      {
+        id: 'scene2',
+        title: 'Scene 2 of 6: GPS Geotagged Photo',
+        caption: 'Step 2: BD Executive visits the hoarding, snaps the inspection photo on-site, and the system automatically locks the real-time GPS coordinates and timestamp.',
+        duration: 8
+      },
+      {
+        id: 'scene3',
+        title: 'Scene 3 of 6: Direct Hospital Distance',
+        caption: 'Step 3: Distance is calculated directly from Sankara Eye Hospital Jaipur to Hoarding SEHJ01: 14.8 KM one-way, or 29.6 KM round-trip back to base.',
+        duration: 8
+      },
+      {
+        id: 'scene4',
+        title: 'Scene 4 of 6: Google Maps Driving Proof',
+        caption: 'Step 4: With 1 tap on Verify on Google Maps, anyone can check the turn-by-turn road driving directions and verify the mileage against real highway roads.',
+        duration: 8
+      },
+      {
+        id: 'scene5',
+        title: 'Scene 5 of 6: Submitting Travel Claim',
+        caption: 'Step 5: The BD Executive enters any odometer road adjustment and taps Submit Travel Claim. Only one request is permitted per calendar month.',
+        duration: 7
+      },
+      {
+        id: 'scene6',
+        title: 'Scene 6 of 6: Unit Head Review & Decision',
+        caption: 'Step 6: The Unit Head (View & Approve Only) logs in, reviews the claim with Hospital-to-Hoarding distance, and clicks Approve or Reject with feedback.',
+        duration: 8
+      }
+    ];
+
+    let currentSceneIndex = 0;
+    let isPlaying = true;
+    let voiceEnabled = true;
+    let sceneTimer = null;
+    let progressTimer = null;
+    let elapsedSeconds = 0;
+    const totalDuration = scenes.reduce((sum, s) => sum + s.duration, 0);
+
+    function speakCaption(text) {
+      if (!voiceEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function showScene(index) {
+      currentSceneIndex = index;
+      document.querySelectorAll('.scene').forEach(el => el.classList.add('hidden'));
+      const activeScene = document.getElementById(scenes[index].id);
+      if (activeScene) activeScene.classList.remove('hidden');
+
+      document.getElementById('sceneIndicator').innerText = scenes[index].title;
+      document.getElementById('captionText').innerText = `"${scenes[index].caption}"`;
+
+      // Update progress bar
+      const progressPercent = ((index + 1) / scenes.length) * 100;
+      document.getElementById('progressBar').style.width = `${progressPercent}%`;
+
+      speakCaption(scenes[index].caption);
+
+      clearTimeout(sceneTimer);
+      if (isPlaying) {
+        sceneTimer = setTimeout(() => {
+          if (currentSceneIndex < scenes.length - 1) {
+            showScene(currentSceneIndex + 1);
+          } else {
+            pauseVideo();
+          }
+        }, scenes[index].duration * 1000);
+      }
+    }
+
+    function playVideo() {
+      isPlaying = true;
+      document.getElementById('playIcon').innerText = '⏸';
+      document.getElementById('playText').innerText = 'Pause';
+      showScene(currentSceneIndex);
+    }
+
+    function pauseVideo() {
+      isPlaying = false;
+      document.getElementById('playIcon').innerText = '▶';
+      document.getElementById('playText').innerText = 'Play';
+      clearTimeout(sceneTimer);
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    }
+
+    document.getElementById('playPauseBtn').addEventListener('click', () => {
+      if (isPlaying) pauseVideo();
+      else playVideo();
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (currentSceneIndex < scenes.length - 1) {
+        showScene(currentSceneIndex + 1);
+      }
+    });
+
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      if (currentSceneIndex > 0) {
+        showScene(currentSceneIndex - 1);
+      }
+    });
+
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      currentSceneIndex = 0;
+      elapsedSeconds = 0;
+      playVideo();
+    });
+
+    document.getElementById('voiceToggle').addEventListener('click', () => {
+      voiceEnabled = !voiceEnabled;
+      document.getElementById('voiceIcon').innerText = voiceEnabled ? '🔊' : '🔇';
+      document.getElementById('voiceText').innerText = voiceEnabled ? 'Voice: ON' : 'Voice: OFF';
+      if (!voiceEnabled && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      } else if (voiceEnabled) {
+        speakCaption(scenes[currentSceneIndex].caption);
+      }
+    });
+
+    // Start playback
+    showScene(0);
+  </script>
+</body>
+</html>
