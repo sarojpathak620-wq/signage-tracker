@@ -1877,21 +1877,11 @@ export const DataService = {
     if (isSupabaseConfigured()) {
       const supabase = createClient();
 
-      // 1. Fetch signages with unit and area
-      let sQuery = supabase
-        .from('signages')
-        .select('id, code, name, address, latitude, longitude, unit_id, area_id, unit:units(id, name, city), area:areas(id, name)')
-        .order('id', { ascending: true });
-
-      if (params?.unit_id) {
-        sQuery = sQuery.eq('unit_id', params.unit_id);
-      }
-      if (params?.area_id) {
-        sQuery = sQuery.eq('area_id', params.area_id);
-      }
-
-      const { data: signagesData, error: sErr } = await sQuery;
-      if (sErr) console.warn('Supabase signages fetch error for audit logs:', sErr);
+      // 1. Fetch signages with unit and area using getSignages
+      const signagesData = await this.getSignages({
+        unit_id: params?.unit_id,
+        area_id: params?.area_id,
+      });
 
       const signagesMap = new Map<string, any>();
       (signagesData || []).forEach((s: any, idx: number) => {
@@ -1922,7 +1912,7 @@ export const DataService = {
       }
 
       let { data: updatesData, error: uErr } = await uQuery;
-      if (uErr && (uErr.code === 'PGRST201' || uErr.message?.includes('more than one relationship'))) {
+      if (uErr || !updatesData) {
         let fallbackQ = supabase.from('signage_updates').select('*');
         if (params?.month_from) {
           const fromVal = params.month_from.length === 7 ? `${params.month_from}-01` : params.month_from;
@@ -1936,7 +1926,7 @@ export const DataService = {
           fallbackQ = fallbackQ.eq('condition', params.condition);
         }
         const fallbackRes = await fallbackQ;
-        updatesData = fallbackRes.data;
+        updatesData = fallbackRes.data || [];
       }
 
       const profiles = await this.getProfiles();
