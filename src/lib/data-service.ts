@@ -1550,22 +1550,35 @@ export const DataService = {
 
       if (existing && existing.status === 'rejected') {
         // Re-submit / update existing rejected request to pending
-        const { data: updated, error: upErr } = await supabase
+        const updatePayload: Record<string, any> = {
+          total_distance_km: data.total_distance_km,
+          is_round_trip: Boolean(data.is_round_trip),
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
+          reviewed_by: null,
+          reviewed_at: null,
+          review_comment: null,
+        };
+
+        let { data: updated, error: upErr } = await supabase
           .from('travel_requests')
-          .update({
-            total_distance_km: data.total_distance_km,
-            start_location: data.start_location || 'Hospital Base Office',
-            is_round_trip: data.is_round_trip ?? false,
-            travel_purpose: data.travel_purpose || null,
-            status: 'pending',
-            submitted_at: new Date().toISOString(),
-            reviewed_by: null,
-            reviewed_at: null,
-            review_comment: null,
-          })
+          .update(updatePayload)
           .eq('id', existing.id)
           .select('*')
           .single();
+
+        // If is_round_trip is not recognized in the PostgREST schema cache, retry cleanly without it
+        if (upErr && upErr.message?.includes('is_round_trip')) {
+          delete updatePayload.is_round_trip;
+          const retryRes = await supabase
+            .from('travel_requests')
+            .update(updatePayload)
+            .eq('id', existing.id)
+            .select('*')
+            .single();
+          updated = retryRes.data;
+          upErr = retryRes.error;
+        }
 
         if (upErr) throw new Error(`Failed to update travel request: ${upErr.message}`);
         request = updated;
@@ -1576,21 +1589,33 @@ export const DataService = {
           .delete()
           .eq('travel_request_id', existing.id);
       } else {
-        const { data: created, error: reqErr } = await supabase
+        const insertPayload: Record<string, any> = {
+          bd_executive_id: data.bd_executive_id,
+          unit_id: data.unit_id,
+          month: data.month,
+          total_distance_km: data.total_distance_km,
+          is_round_trip: Boolean(data.is_round_trip),
+          status: 'pending',
+          submitted_at: new Date().toISOString(),
+        };
+
+        let { data: created, error: reqErr } = await supabase
           .from('travel_requests')
-          .insert({
-            bd_executive_id: data.bd_executive_id,
-            unit_id: data.unit_id,
-            month: data.month,
-            total_distance_km: data.total_distance_km,
-            start_location: data.start_location || 'Hospital Base Office',
-            is_round_trip: data.is_round_trip ?? false,
-            travel_purpose: data.travel_purpose || null,
-            status: 'pending',
-            submitted_at: new Date().toISOString(),
-          })
+          .insert(insertPayload)
           .select('*')
           .single();
+
+        // If is_round_trip is not recognized in the PostgREST schema cache, retry cleanly without it
+        if (reqErr && reqErr.message?.includes('is_round_trip')) {
+          delete insertPayload.is_round_trip;
+          const retryRes = await supabase
+            .from('travel_requests')
+            .insert(insertPayload)
+            .select('*')
+            .single();
+          created = retryRes.data;
+          reqErr = retryRes.error;
+        }
 
         if (reqErr) throw new Error(`Failed to create travel request: ${reqErr.message}`);
         request = created;
