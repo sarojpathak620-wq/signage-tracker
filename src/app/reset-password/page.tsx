@@ -125,7 +125,7 @@ function ResetPasswordForm() {
 
         setTimeout(() => {
           if (profile?.role === 'admin') {
-            router.push('/admin');
+            router.push('/');
           } else if (profile?.role === 'bd_executive') {
             router.push('/bd');
           } else if (profile?.role === 'supervisor') {

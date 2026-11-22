@@ -25,7 +25,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // 2. If already logged in and visiting /login -> redirect to designated portal
     if (user && pathname === '/login') {
       let dest = '/';
-      if (role === 'admin') dest = '/admin/signages';
+      if (role === 'admin') dest = '/';
       else if (role === 'bd_executive') dest = '/bd';
       else if (role === 'supervisor') dest = '/supervisor';
       router.replace(dest);
@@ -37,7 +37,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       if (pathname.startsWith('/admin') && role !== 'admin') {
         router.replace(role === 'bd_executive' ? '/bd' : '/supervisor');
       } else if (pathname.startsWith('/bd') && role !== 'bd_executive') {
-        router.replace(role === 'admin' ? '/admin/signages' : '/supervisor');
+        router.replace(role === 'admin' ? '/' : '/supervisor');
       }
     }
   }, [user, role, loading, pathname, isPublic, router]);

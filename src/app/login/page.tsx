@@ -36,7 +36,7 @@ export default function LoginPage() {
       const profile = await login(email, password);
       if (profile) {
         let dest = '/';
-        if (profile.role === 'admin') dest = '/admin/signages';
+        if (profile.role === 'admin') dest = '/';
         else if (profile.role === 'bd_executive') dest = '/bd';
         else if (profile.role === 'supervisor') dest = '/supervisor';
 
