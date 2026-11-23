@@ -336,8 +336,8 @@ export default function BDExecutivePortal() {
           type="button"
           onClick={() => setActiveTab('signages')}
           className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer ${activeTab === 'signages'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
+            ? 'bg-white text-slate-900 shadow-xs'
+            : 'text-slate-600 hover:text-slate-900'
             }`}
         >
           <Camera className="w-3.5 h-3.5 text-blue-600" />
@@ -347,8 +347,8 @@ export default function BDExecutivePortal() {
           type="button"
           onClick={() => setActiveTab('travel')}
           className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer relative ${activeTab === 'travel'
-              ? 'bg-white text-slate-900 shadow-xs'
-              : 'text-slate-600 hover:text-slate-900'
+            ? 'bg-white text-slate-900 shadow-xs'
+            : 'text-slate-600 hover:text-slate-900'
             }`}
         >
           <Navigation className="w-3.5 h-3.5 text-emerald-600" />
@@ -369,8 +369,8 @@ export default function BDExecutivePortal() {
             <button
               onClick={() => setStatusFilter(statusFilter === 'Updated' ? 'All' : 'Updated')}
               className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${statusFilter === 'Updated'
-                  ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                ? 'bg-emerald-50 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-slate-300'
                 }`}
             >
               <div className="flex items-center justify-between w-full">
@@ -383,8 +383,8 @@ export default function BDExecutivePortal() {
             <button
               onClick={() => setStatusFilter(statusFilter === 'Pending' ? 'All' : 'Pending')}
               className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${statusFilter === 'Pending'
-                  ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                ? 'bg-amber-50 border-amber-400 ring-2 ring-amber-500/20 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-slate-300'
                 }`}
             >
               <div className="flex items-center justify-between w-full">
@@ -397,8 +397,8 @@ export default function BDExecutivePortal() {
             <button
               onClick={() => setStatusFilter(statusFilter === 'Overdue' ? 'All' : 'Overdue')}
               className={`min-h-[72px] p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${statusFilter === 'Overdue'
-                  ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500/20 shadow-xs'
-                  : 'bg-white border-slate-200 hover:border-slate-300'
+                ? 'bg-rose-50 border-rose-400 ring-2 ring-rose-500/20 shadow-xs'
+                : 'bg-white border-slate-200 hover:border-slate-300'
                 }`}
             >
               <div className="flex items-center justify-between w-full">
@@ -429,8 +429,8 @@ export default function BDExecutivePortal() {
                   key={tab}
                   onClick={() => setStatusFilter(tab)}
                   className={`min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${statusFilter === tab
-                      ? 'bg-slate-900 text-white shadow-xs'
-                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                    ? 'bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                     }`}
                 >
                   {tab}
@@ -640,8 +640,8 @@ export default function BDExecutivePortal() {
                             type="button"
                             onClick={() => setSelectedSignageForCamera(signage)}
                             className={`w-full min-h-[48px] py-3 px-4 rounded-2xl text-sm font-bold flex items-center justify-center space-x-2 transition-all active:scale-98 cursor-pointer shadow-sm ${isOverdue
-                                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/25 animate-pulse'
-                                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
+                              ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-500/25 animate-pulse'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25'
                               }`}
                           >
                             <Camera className="w-4 h-4" />
@@ -706,10 +706,10 @@ export default function BDExecutivePortal() {
           {/* Travel Request Status Card */}
           {travelSummary?.existing_request && (!isResubmitting || travelSummary.existing_request.status !== 'rejected') && (
             <div className={`p-4 sm:p-5 rounded-3xl border shadow-xs transition-all ${travelSummary.existing_request.status === 'approved'
-                ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
-                : travelSummary.existing_request.status === 'rejected'
-                  ? 'bg-rose-50/80 border-rose-300 text-rose-950'
-                  : 'bg-amber-50/80 border-amber-300 text-amber-950'
+              ? 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+              : travelSummary.existing_request.status === 'rejected'
+                ? 'bg-rose-50/80 border-rose-300 text-rose-950'
+                : 'bg-amber-50/80 border-amber-300 text-amber-950'
               }`}>
               <div className="flex items-start space-x-3">
                 {travelSummary.existing_request.status === 'approved' && (
@@ -725,10 +725,10 @@ export default function BDExecutivePortal() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-2">
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${travelSummary.existing_request.status === 'approved'
-                        ? 'bg-emerald-200 text-emerald-900'
-                        : travelSummary.existing_request.status === 'rejected'
-                          ? 'bg-rose-200 text-rose-900'
-                          : 'bg-amber-200 text-amber-900'
+                      ? 'bg-emerald-200 text-emerald-900'
+                      : travelSummary.existing_request.status === 'rejected'
+                        ? 'bg-rose-200 text-rose-900'
+                        : 'bg-amber-200 text-amber-900'
                       }`}>
                       {travelSummary.existing_request.status === 'pending' ? 'Pending Unit Head Review' : travelSummary.existing_request.status}
                     </span>
@@ -930,8 +930,8 @@ export default function BDExecutivePortal() {
                     }}
                     disabled={travelSummary?.stops_count === 0}
                     className={`flex-1 min-h-[44px] py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center space-x-2 transition-all cursor-pointer ${travelSummary?.stops_count === 0
-                        ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                        : 'bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-md shadow-blue-500/25'
+                      ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-700 active:scale-98 text-white shadow-md shadow-blue-500/25'
                       }`}
                   >
                     <Send className="w-4 h-4" />
@@ -1087,10 +1087,10 @@ export default function BDExecutivePortal() {
                       <div className="flex items-center space-x-2">
                         <span className="text-xs font-bold text-slate-900">{pastReq.month}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${pastReq.status === 'approved'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : pastReq.status === 'rejected'
-                              ? 'bg-rose-100 text-rose-800'
-                              : 'bg-amber-100 text-amber-800'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : pastReq.status === 'rejected'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-amber-100 text-amber-800'
                           }`}>
                           {pastReq.status}
                         </span>
